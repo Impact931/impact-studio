@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-accent: #c8a96e;
+  --brand-dark: #141414;
+}
+
+body {
+  background: #0a0a0a;
+  color: #e0e0e0;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #141414;
+}
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
