@@ -24,6 +24,7 @@ async function sendEmail(to: string, subject: string, body: string) {
   await ses.send(
     new SendEmailCommand({
       Source: FROM_EMAIL,
+      ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
       Destination: { ToAddresses: [to] },
       Message: {
         Subject: { Data: subject },
@@ -83,24 +84,80 @@ export async function POST(req: NextRequest) {
         const rentalDate = booking.rentalDate as string;
         const startTime = booking.startTime as string;
         const endTime = booking.endTime as string;
+        const totalAmount = booking.totalAmount as number;
+        const equipment = (booking.equipment || []) as Array<{ name: string; quantity: number; price: number }>;
 
-        // Send confirmation to renter
+        const formatUSD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+        const equipmentRows = equipment
+          .map(
+            (item) =>
+              `<tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #eee;">${item.name}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${formatUSD(item.price * item.quantity)}</td>
+              </tr>`,
+          )
+          .join('\n');
+
+        const securityHoldNote = !booking.hasInsurance
+          ? `<p style="margin-top:12px;padding:10px;background:#fff8e6;border:1px solid #e6d5a0;border-radius:4px;font-size:13px;">
+              <strong>Security Hold:</strong> A $500.00 authorization hold has been placed on your card. This is <em>not</em> a charge and will be released within 5 business days after equipment is returned in satisfactory condition.
+            </p>`
+          : '';
+
+        // Send confirmation/receipt to renter
         await sendEmail(
           renterEmail,
-          'Impact Studio — Booking Confirmed',
+          `Impact Studio — Receipt & Booking Confirmation #${bookingId.slice(0, 8)}`,
           `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h1 style="color: #c8a96e;">Booking Confirmed</h1>
-            <p>Hi ${renterName},</p>
-            <p>Your Impact Studio booking has been confirmed. Here are the details:</p>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr><td style="padding: 8px; color: #666;">Date</td><td style="padding: 8px;">${rentalDate}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Time</td><td style="padding: 8px;">${startTime} – ${endTime}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Reference</td><td style="padding: 8px; font-family: monospace;">${bookingId}</td></tr>
-            </table>
-            <p><strong>Studio Address:</strong><br/>2300 Rotary Park Dr, Suite A<br/>Clarksville, TN 37043</p>
-            <p>Our operations manager will follow up with any additional details. If you have questions, reply to this email or call 615-249-8096.</p>
-            <p style="color: #c8a96e; font-weight: bold;">— Impact Studio by JHR Photography</p>
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+            <div style="background:#1a1a1a;padding:24px;text-align:center;">
+              <h1 style="color:#c8a96e;margin:0;font-size:24px;">Impact Studio</h1>
+              <p style="color:#999;margin:4px 0 0;font-size:13px;">Equipment Rental Receipt</p>
+            </div>
+
+            <div style="padding:24px;">
+              <p>Hi ${renterName},</p>
+              <p>Thank you for your rental! Your payment has been processed and your booking is confirmed. Here is your receipt.</p>
+
+              <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+                <tr><td style="padding:6px 0;color:#666;width:140px;">Booking ID</td><td style="padding:6px 0;font-family:monospace;">${bookingId}</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">Date</td><td style="padding:6px 0;">${rentalDate}</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">Time</td><td style="padding:6px 0;">${startTime} – ${endTime}</td></tr>
+                ${booking.company ? `<tr><td style="padding:6px 0;color:#666;">Company</td><td style="padding:6px 0;">${booking.company}</td></tr>` : ''}
+                <tr><td style="padding:6px 0;color:#666;">Insurance</td><td style="padding:6px 0;">${booking.hasInsurance ? booking.insuranceProvider : 'None on file'}</td></tr>
+              </table>
+
+              <h3 style="margin:24px 0 8px;font-size:15px;color:#1a1a1a;">Equipment Rented</h3>
+              <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                <thead>
+                  <tr style="background:#f5f5f5;">
+                    <th style="padding:8px 12px;text-align:left;font-weight:600;">Item</th>
+                    <th style="padding:8px 12px;text-align:center;font-weight:600;">Qty</th>
+                    <th style="padding:8px 12px;text-align:right;font-weight:600;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${equipmentRows}
+                </tbody>
+              </table>
+
+              <div style="margin-top:12px;padding:12px;background:#f9f9f9;border-radius:4px;display:flex;justify-content:space-between;">
+                <span style="font-size:16px;font-weight:700;">Total Paid</span>
+                <span style="font-size:16px;font-weight:700;color:#c8a96e;">${formatUSD(totalAmount)}</span>
+              </div>
+
+              ${securityHoldNote}
+
+              <hr style="margin:24px 0;border:none;border-top:1px solid #eee;" />
+
+              <p style="font-size:13px;color:#666;"><strong>Pickup Location:</strong><br/>2300 Rotary Park Dr, Suite A<br/>Clarksville, TN 37043</p>
+
+              <p style="font-size:13px;color:#666;">Our operations manager will follow up with pickup details. If you have questions, reply to this email or call <strong>615-249-8096</strong>.</p>
+
+              <p style="margin-top:24px;color:#c8a96e;font-weight:bold;">— Impact Studio by JHR Photography</p>
+            </div>
           </div>
           `,
         );
@@ -108,23 +165,39 @@ export async function POST(req: NextRequest) {
         // Send ops notification
         await sendEmail(
           OPS_EMAIL,
-          `New Booking: ${renterName} — ${rentalDate}`,
+          `New Booking: ${renterName} — ${rentalDate} — ${formatUSD(totalAmount)}`,
           `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h1 style="color: #c8a96e;">New Studio Booking</h1>
-            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-              <tr><td style="padding: 8px; color: #666;">Booking ID</td><td style="padding: 8px; font-family: monospace;">${bookingId}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Renter</td><td style="padding: 8px;">${renterName}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Company</td><td style="padding: 8px;">${booking.company || '—'}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Email</td><td style="padding: 8px;">${renterEmail}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Phone</td><td style="padding: 8px;">${booking.phone || '—'}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Date</td><td style="padding: 8px;">${rentalDate}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Time</td><td style="padding: 8px;">${startTime} – ${endTime}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Production</td><td style="padding: 8px;">${booking.productionType || '—'}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Insurance</td><td style="padding: 8px;">${booking.hasInsurance ? booking.insuranceProvider : 'No — $500 hold'}</td></tr>
-              <tr><td style="padding: 8px; color: #666;">Total</td><td style="padding: 8px;">$${((booking.totalAmount as number) / 100).toFixed(2)}</td></tr>
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+            <h1 style="color:#c8a96e;">New Equipment Rental</h1>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+              <tr><td style="padding:6px 0;color:#666;width:140px;">Booking ID</td><td style="padding:6px 0;font-family:monospace;">${bookingId}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Renter</td><td style="padding:6px 0;">${renterName}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Company</td><td style="padding:6px 0;">${booking.company || '—'}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Email</td><td style="padding:6px 0;">${renterEmail}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Phone</td><td style="padding:6px 0;">${booking.phone || '—'}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Date</td><td style="padding:6px 0;">${rentalDate}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Time</td><td style="padding:6px 0;">${startTime} – ${endTime}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Production</td><td style="padding:6px 0;">${booking.productionType || '—'}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Insurance</td><td style="padding:6px 0;">${booking.hasInsurance ? booking.insuranceProvider : '<strong style="color:#c0392b;">No — $500 hold</strong>'}</td></tr>
             </table>
-            <p>Review this booking in the admin panel or DynamoDB.</p>
+
+            <h3 style="margin:20px 0 8px;font-size:15px;">Equipment</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="background:#f5f5f5;">
+                  <th style="padding:8px 12px;text-align:left;">Item</th>
+                  <th style="padding:8px 12px;text-align:center;">Qty</th>
+                  <th style="padding:8px 12px;text-align:right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${equipmentRows}
+              </tbody>
+            </table>
+
+            <div style="margin-top:12px;padding:12px;background:#f0f7f0;border-radius:4px;">
+              <strong>Total Paid: ${formatUSD(totalAmount)}</strong>
+            </div>
           </div>
           `,
         );
