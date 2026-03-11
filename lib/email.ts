@@ -107,6 +107,7 @@ export async function sendBookingConfirmation(booking: Booking) {
   await ses.send(
     new SendEmailCommand({
       Source: FROM_EMAIL,
+      ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
       Destination: { ToAddresses: [booking.email] },
       Message: {
         Subject: { Data: `Impact Studio Booking Confirmed — ${formatDate(booking.rentalDate)}` },
@@ -208,6 +209,7 @@ export async function sendOpsNotification(booking: Booking) {
   await ses.send(
     new SendEmailCommand({
       Source: FROM_EMAIL,
+      ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
       Destination: { ToAddresses: [OPS_EMAIL] },
       Message: {
         Subject: {
