@@ -41,12 +41,6 @@ const SPECIAL_REQUIREMENTS = [
   { value: 'overhead-rigs', label: 'Overhead rigs' },
 ];
 
-const CONTENT_DISCLOSURES = [
-  { value: 'partial-nudity', label: 'Partial nudity' },
-  { value: 'full-nudity', label: 'Full nudity' },
-  { value: 'sensitive-content', label: 'Sensitive content' },
-];
-
 const STUDIO_RENTAL_MAP: Record<string, string> = {
   hourly: 'studio-hourly',
   half_day: 'studio-half-day',
@@ -75,7 +69,7 @@ export default function BookingPage() {
     rentalDate: '',
     startTime: '',
     endTime: '',
-    studioRentalType: 'hourly',
+    studioRentalType: 'none',
     equipment: [],
     rentalMode: 'in_studio',
     damageWaiver: false,
@@ -96,20 +90,22 @@ export default function BookingPage() {
     const items: CartItem[] = [];
     const isInStudio = form.rentalMode === 'in_studio';
 
-    // Studio rental
-    const studioId = STUDIO_RENTAL_MAP[form.studioRentalType];
-    const studioItem = STUDIO_RENTALS.find((r) => r.id === studioId);
-    if (studioItem) {
-      const price = isInStudio
-        ? studioItem.priceInStudio
-        : studioItem.priceOutOfStudio;
-      if (price > 0) {
-        items.push({
-          equipmentId: studioItem.id,
-          name: studioItem.name,
-          price,
-          quantity: 1,
-        });
+    // Studio rental (optional)
+    if (form.studioRentalType !== 'none') {
+      const studioId = STUDIO_RENTAL_MAP[form.studioRentalType];
+      const studioItem = STUDIO_RENTALS.find((r) => r.id === studioId);
+      if (studioItem) {
+        const price = isInStudio
+          ? studioItem.priceInStudio
+          : studioItem.priceOutOfStudio;
+        if (price > 0) {
+          items.push({
+            equipmentId: studioItem.id,
+            name: studioItem.name,
+            price,
+            quantity: 1,
+          });
+        }
       }
     }
 
@@ -210,9 +206,8 @@ export default function BookingPage() {
     const errs: Record<string, string> = {};
 
     if (step === 0) {
-      // Must have at least a studio rental in cart
-      if (form.rentalMode === 'in_studio' && cart.length === 0) {
-        errs.studioRentalType = 'Please select a studio rental option';
+      if (cart.length === 0) {
+        errs.studioRentalType = 'Please select at least one item';
       }
     }
 
@@ -425,48 +420,54 @@ export default function BookingPage() {
                         {errors.studioRentalType}
                       </p>
                     )}
+                    <p className="text-xs text-brand-muted mb-2">
+                      Optional — select if you need studio space.
+                    </p>
                     <div className="flex flex-col gap-2">
-                      {STUDIO_RENTALS.map((rental) => (
-                        <label
-                          key={rental.id}
-                          className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${
-                            STUDIO_RENTAL_MAP[form.studioRentalType] === rental.id
-                              ? 'border-brand-accent bg-brand-accent/10'
-                              : 'border-brand-border hover:border-brand-accent/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="radio"
-                              name="studioRental"
-                              checked={
-                                STUDIO_RENTAL_MAP[form.studioRentalType] ===
-                                rental.id
-                              }
-                              onChange={() => {
-                                const type = Object.entries(STUDIO_RENTAL_MAP).find(
-                                  ([, v]) => v === rental.id,
-                                )?.[0] as BookingFormData['studioRentalType'];
-                                if (type) updateForm('studioRentalType', type);
-                              }}
-                              className="w-4 h-4 accent-brand-accent"
-                            />
-                            <div>
-                              <p className="text-sm text-brand-text">
-                                {rental.name}
-                              </p>
-                              {rental.description && (
-                                <p className="text-xs text-brand-muted">
-                                  {rental.description}
+                      {STUDIO_RENTALS.map((rental) => {
+                        const type = Object.entries(STUDIO_RENTAL_MAP).find(
+                          ([, v]) => v === rental.id,
+                        )?.[0] as BookingFormData['studioRentalType'] | undefined;
+                        const isSelected = STUDIO_RENTAL_MAP[form.studioRentalType] === rental.id;
+                        return (
+                          <label
+                            key={rental.id}
+                            className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'border-brand-accent bg-brand-accent/10'
+                                : 'border-brand-border hover:border-brand-accent/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  if (isSelected) {
+                                    updateForm('studioRentalType', 'none');
+                                  } else if (type) {
+                                    updateForm('studioRentalType', type);
+                                  }
+                                }}
+                                className="w-4 h-4 accent-brand-accent"
+                              />
+                              <div>
+                                <p className="text-sm text-brand-text">
+                                  {rental.name}
                                 </p>
-                              )}
+                                {rental.description && (
+                                  <p className="text-xs text-brand-muted">
+                                    {rental.description}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <span className="text-sm font-medium text-brand-accent">
-                            {formatPrice(rental.priceInStudio)}
-                          </span>
-                        </label>
-                      ))}
+                            <span className="text-sm font-medium text-brand-accent">
+                              {formatPrice(rental.priceInStudio)}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -686,37 +687,6 @@ export default function BookingPage() {
                         />
                         <span className="text-sm text-brand-text">
                           {req.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Content Disclosure */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
-                    Content Disclosure
-                  </h2>
-                  <p className="text-xs text-brand-muted mb-3">
-                    Please disclose if your production involves any of the
-                    following:
-                  </p>
-                  <div className="space-y-2">
-                    {CONTENT_DISCLOSURES.map((item) => (
-                      <label
-                        key={item.value}
-                        className="flex items-center gap-3 p-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={form.contentDisclosure.includes(item.value)}
-                          onChange={() =>
-                            toggleArrayItem('contentDisclosure', item.value)
-                          }
-                          className="w-4 h-4 accent-brand-accent"
-                        />
-                        <span className="text-sm text-brand-text">
-                          {item.label}
                         </span>
                       </label>
                     ))}

@@ -28,7 +28,7 @@ export interface BookingFormData {
   rentalDate: string;
   startTime: string;
   endTime: string;
-  studioRentalType: 'hourly' | 'half_day' | 'full_day';
+  studioRentalType: 'none' | 'hourly' | 'half_day' | 'full_day';
   equipment: CartItem[];
   rentalMode: 'in_studio' | 'out_of_studio';
   damageWaiver: boolean;
