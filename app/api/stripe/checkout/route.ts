@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { putItem } from '@/lib/dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createCheckoutSession } from '@/lib/stripe';
+import { getOrCreateStripeCustomer } from '@/lib/stripe-deposits';
 import { Booking, BookingFormData } from '@/types/booking';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -64,6 +65,14 @@ export async function POST(req: NextRequest) {
     const bookingId = uuidv4();
     const now = new Date().toISOString();
 
+    // --- Get or create Stripe Customer ---
+    const stripeCustomerId = await getOrCreateStripeCustomer(
+      body.email,
+      body.renterName,
+      body.phone,
+      { bookingId },
+    );
+
     // --- Upload signature to S3 ---
     let signatureImageKey = '';
     if (body.signatureDataUrl) {
@@ -101,6 +110,7 @@ export async function POST(req: NextRequest) {
       PK: `BOOKING#${bookingId}`,
       SK: `META`,
       ...booking,
+      stripeCustomerId,
       // Remove the large base64 string from DynamoDB (stored in S3)
       signatureDataUrl: undefined,
     });
@@ -115,9 +125,12 @@ export async function POST(req: NextRequest) {
         PK: `BOOKING#${bookingId}`,
         SK: `META`,
         ...booking,
+        stripeCustomerId,
         signatureDataUrl: undefined,
         stripeSessionId: sessionId,
         stripePaymentIntentId: securityHoldIntentId ?? undefined,
+        depositPaymentIntentId: securityHoldIntentId ?? undefined,
+        depositStatus: securityHoldIntentId ? 'held' : undefined,
       });
     }
 

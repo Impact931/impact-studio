@@ -7,13 +7,13 @@ interface PricingToggleProps {
 
 export default function PricingToggle({ mode, onChange }: PricingToggleProps) {
   return (
-    <div className="inline-flex items-center rounded-full border border-brand-border bg-brand-dark p-1">
+    <div className="inline-flex items-center rounded-full border border-brand-border bg-brand-light p-1">
       <button
         type="button"
         onClick={() => onChange('in_studio')}
         className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
           mode === 'in_studio'
-            ? 'bg-brand-accent text-brand-black'
+            ? 'bg-brand-accent text-white shadow-sm'
             : 'text-brand-muted hover:text-brand-text'
         }`}
       >
@@ -24,7 +24,7 @@ export default function PricingToggle({ mode, onChange }: PricingToggleProps) {
         onClick={() => onChange('out_of_studio')}
         className={`rounded-full px-5 py-2 text-sm font-medium transition-all ${
           mode === 'out_of_studio'
-            ? 'bg-brand-accent text-brand-black'
+            ? 'bg-brand-accent text-white shadow-sm'
             : 'text-brand-muted hover:text-brand-text'
         }`}
       >

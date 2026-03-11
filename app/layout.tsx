@@ -3,6 +3,7 @@ import { Inter, Outfit } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import CookieConsent from '@/components/layout/CookieConsent';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -17,9 +18,9 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Impact Studio | Professional Equipment Rental',
+  title: 'Impact Studio | Professional Studio & Equipment Rental',
   description:
-    'Clarksville, TN\'s premier photography studio — cyclorama wall, professional lighting, and everything you need to create. Equipment rental for photographers and creators.',
+    'Clarksville, TN\'s premier photography studio — cyclorama wall, professional lighting, and everything you need to create. Studio and equipment rental for photographers and creators.',
 };
 
 export default function RootLayout({
@@ -29,10 +30,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
-      <body className="bg-brand-black font-sans text-brand-text antialiased">
+      <body className="bg-brand-white font-sans text-brand-text antialiased">
         <Header />
         <main>{children}</main>
         <Footer />
+        <CookieConsent />
       </body>
     </html>
   );

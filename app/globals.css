@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --brand-accent: #c8a96e;
-  --brand-dark: #141414;
+  --brand-accent: #C8A96E;
+  --brand-dark: #1A1A1A;
 }
 
 body {
-  background: #0a0a0a;
-  color: #e0e0e0;
+  background: #FFFFFF;
+  color: #1A1A1A;
 }
 
 /* Smooth scrolling */
@@ -22,9 +22,9 @@ html {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #141414;
+  background: #F8F8F8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: #C8A96E;
   border-radius: 3px;
 }

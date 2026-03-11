@@ -10,13 +10,13 @@ function ConfirmationContent() {
   const sessionId = searchParams.get('session_id');
 
   return (
-    <div className="min-h-screen bg-brand-black text-brand-text flex items-center justify-center px-4">
+    <div className="min-h-screen bg-brand-white text-brand-text flex items-center justify-center px-4">
       <div className="max-w-lg w-full">
         {/* Success icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-brand-success/10 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-brand-green"
+              className="w-8 h-8 text-brand-success"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -31,15 +31,15 @@ function ConfirmationContent() {
           </div>
         </div>
 
-        <h1 className="text-3xl font-display font-bold text-brand-white text-center mb-2">
+        <h1 className="text-3xl font-display font-bold text-brand-text text-center mb-2">
           Booking Confirmed
         </h1>
         <p className="text-center text-brand-muted mb-6">
-          Your studio rental has been successfully booked.
+          Your rental has been successfully booked.
         </p>
 
         {sessionId && (
-          <div className="bg-brand-card border border-brand-border rounded-lg p-5 mb-6">
+          <div className="bg-white border border-brand-border rounded-lg p-5 mb-6 shadow-sm">
             <p className="text-xs text-brand-muted mb-1">Booking Reference</p>
             <p className="text-sm font-mono text-brand-accent break-all">
               {sessionId}
@@ -48,13 +48,13 @@ function ConfirmationContent() {
         )}
 
         {/* What's Next */}
-        <div className="bg-brand-card border border-brand-border rounded-lg p-5 mb-8">
-          <h2 className="text-lg font-semibold text-brand-white mb-4">
+        <div className="bg-white border border-brand-border rounded-lg p-5 mb-8 shadow-sm">
+          <h2 className="text-lg font-semibold text-brand-text mb-4">
             What&apos;s Next
           </h2>
           <ul className="space-y-4">
             <li className="flex gap-3">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-brand-black text-xs font-bold shrink-0">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-bold shrink-0">
                 1
               </span>
               <div>
@@ -68,7 +68,7 @@ function ConfirmationContent() {
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-brand-black text-xs font-bold shrink-0">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-bold shrink-0">
                 2
               </span>
               <div>
@@ -77,17 +77,17 @@ function ConfirmationContent() {
                 </p>
                 <p className="text-xs text-brand-muted">
                   You&apos;ll receive a confirmation email with your booking
-                  details, rental agreement, and studio access instructions.
+                  details, rental agreement, and pickup instructions.
                 </p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-brand-black text-xs font-bold shrink-0">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-accent text-white text-xs font-bold shrink-0">
                 3
               </span>
               <div>
                 <p className="text-sm text-brand-text font-medium">
-                  Studio Address
+                  Pickup Location
                 </p>
                 <p className="text-xs text-brand-muted">
                   Impact Studio — 2300 Rotary Park Dr, Suite A, Clarksville, TN
@@ -114,7 +114,7 @@ export default function ConfirmationPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-brand-black flex items-center justify-center">
+        <div className="min-h-screen bg-brand-white flex items-center justify-center">
           <p className="text-brand-muted">Loading...</p>
         </div>
       }

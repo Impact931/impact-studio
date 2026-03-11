@@ -330,10 +330,10 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-black text-brand-text">
+    <div className="min-h-screen bg-brand-white text-brand-text">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
-        <h1 className="text-3xl font-display font-bold text-brand-white mb-2">
+        <h1 className="text-3xl font-display font-bold text-brand-text mb-2">
           Book Impact Studio
         </h1>
         <p className="text-brand-muted mb-8">
@@ -379,8 +379,8 @@ export default function BookingPage() {
             {currentStep === 0 && (
               <div className="space-y-6">
                 {/* Rental Mode Toggle */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Rental Location
                   </h2>
                   <div className="flex gap-3">
@@ -390,7 +390,7 @@ export default function BookingPage() {
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         form.rentalMode === 'in_studio'
                           ? 'bg-brand-accent text-brand-black'
-                          : 'bg-brand-border text-brand-muted hover:text-brand-text'
+                          : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
                       In-Studio
@@ -401,7 +401,7 @@ export default function BookingPage() {
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         form.rentalMode === 'out_of_studio'
                           ? 'bg-brand-accent text-brand-black'
-                          : 'bg-brand-border text-brand-muted hover:text-brand-text'
+                          : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
                       Out-of-Studio
@@ -411,8 +411,8 @@ export default function BookingPage() {
 
                 {/* Studio Rental Type (in-studio only) */}
                 {form.rentalMode === 'in_studio' && (
-                  <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                    <h2 className="text-lg font-semibold text-brand-white mb-4">
+                  <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                    <h2 className="text-lg font-semibold text-brand-text mb-4">
                       Studio Rental
                     </h2>
                     {errors.studioRentalType && (
@@ -473,8 +473,8 @@ export default function BookingPage() {
                 )}
 
                 {/* Lighting Bundles */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Lighting Bundles
                   </h2>
                   <div className="flex flex-col gap-2">
@@ -489,8 +489,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* A La Carte */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     A La Carte Equipment
                   </h2>
                   <div className="flex flex-col gap-2">
@@ -510,8 +510,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* Damage Waiver */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Add-ons
                   </h2>
                   {ADDONS.map((addon) =>
@@ -529,8 +529,8 @@ export default function BookingPage() {
             {currentStep === 1 && (
               <div className="space-y-6">
                 {/* Date & Time */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Date &amp; Time
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -559,8 +559,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* Renter Info */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Renter Information
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -596,8 +596,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* Production Details */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Production Details
                   </h2>
                   <div className="space-y-4">
@@ -621,7 +621,7 @@ export default function BookingPage() {
                           updateForm('description', e.target.value)
                         }
                         rows={3}
-                        className="w-full px-3 py-2 rounded-md text-sm bg-brand-card border border-brand-border text-brand-text placeholder:text-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                        className="w-full px-3 py-2 rounded-md text-sm bg-white border border-brand-border shadow-sm text-brand-text placeholder:text-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
                         placeholder="Describe your production..."
                       />
                     </div>
@@ -667,8 +667,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* Special Requirements */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Special Requirements
                   </h2>
                   <div className="space-y-2">
@@ -694,7 +694,7 @@ export default function BookingPage() {
                 </div>
 
                 {/* Off-site equipment */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                   <label className="flex items-center gap-3">
                     <input
                       type="checkbox"
@@ -715,8 +715,8 @@ export default function BookingPage() {
             {/* ========== STEP 3: Insurance ========== */}
             {currentStep === 2 && (
               <div className="space-y-6">
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Production Insurance
                   </h2>
                   <p className="text-sm text-brand-muted mb-4">
@@ -730,7 +730,7 @@ export default function BookingPage() {
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         form.hasInsurance
                           ? 'bg-brand-accent text-brand-black'
-                          : 'bg-brand-border text-brand-muted hover:text-brand-text'
+                          : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
                       Yes
@@ -744,7 +744,7 @@ export default function BookingPage() {
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         !form.hasInsurance
                           ? 'bg-brand-accent text-brand-black'
-                          : 'bg-brand-border text-brand-muted hover:text-brand-text'
+                          : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
                       No
@@ -783,8 +783,8 @@ export default function BookingPage() {
             {/* ========== STEP 4: Review & Sign ========== */}
             {currentStep === 3 && (
               <div className="space-y-6">
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Rental Agreement
                   </h2>
                   {errors.agreement && (
@@ -795,7 +795,7 @@ export default function BookingPage() {
                   <div
                     ref={agreementRef}
                     onScroll={handleAgreementScroll}
-                    className="h-64 overflow-y-auto p-4 rounded-md bg-brand-black border border-brand-border text-xs text-brand-muted whitespace-pre-wrap leading-relaxed"
+                    className="h-64 overflow-y-auto p-4 rounded-md bg-brand-light border border-brand-border text-xs text-brand-muted whitespace-pre-wrap leading-relaxed"
                   >
                     {RENTAL_AGREEMENT}
                   </div>
@@ -806,8 +806,8 @@ export default function BookingPage() {
                   </p>
                 </div>
 
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5 space-y-4">
-                  <h2 className="text-lg font-semibold text-brand-white mb-2">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5 space-y-4">
+                  <h2 className="text-lg font-semibold text-brand-text mb-2">
                     Sign Agreement
                   </h2>
                   <Input
@@ -857,8 +857,8 @@ export default function BookingPage() {
             {/* ========== STEP 5: Checkout ========== */}
             {currentStep === 4 && (
               <div className="space-y-6">
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Order Summary
                   </h2>
                   <div className="divide-y divide-brand-border">
@@ -880,7 +880,7 @@ export default function BookingPage() {
                     ))}
                   </div>
                   <div className="flex justify-between pt-4 border-t border-brand-border mt-2">
-                    <span className="text-base font-semibold text-brand-white">
+                    <span className="text-base font-semibold text-brand-text">
                       Total
                     </span>
                     <span className="text-base font-semibold text-brand-accent">
@@ -895,8 +895,8 @@ export default function BookingPage() {
                 </div>
 
                 {/* Booking summary */}
-                <div className="bg-brand-card border border-brand-border rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-white mb-4">
+                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                  <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Booking Details
                   </h2>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -960,8 +960,8 @@ export default function BookingPage() {
           {/* Cart sidebar (steps 0-3) */}
           {currentStep < 4 && (
             <div className="lg:w-72 shrink-0">
-              <div className="sticky top-8 bg-brand-card border border-brand-border rounded-lg p-5">
-                <h3 className="text-sm font-semibold text-brand-white mb-3">
+              <div className="sticky top-8 bg-white border border-brand-border shadow-sm rounded-lg p-5">
+                <h3 className="text-sm font-semibold text-brand-text mb-3">
                   Cart
                 </h3>
                 {cart.length === 0 ? (
@@ -982,7 +982,7 @@ export default function BookingPage() {
                       </div>
                     ))}
                     <div className="pt-2 border-t border-brand-border flex justify-between text-sm font-semibold">
-                      <span className="text-brand-white">Total</span>
+                      <span className="text-brand-text">Total</span>
                       <span className="text-brand-accent">
                         {formatPrice(cartTotal)}
                       </span>
