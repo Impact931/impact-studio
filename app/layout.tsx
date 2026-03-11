@@ -4,6 +4,7 @@ import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CookieConsent from '@/components/layout/CookieConsent';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,10 +32,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
       <body className="bg-brand-white font-sans text-brand-text antialiased">
-        <Header />
-        <main>{children}</main>
-        <Footer />
-        <CookieConsent />
+        <AuthProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+          <CookieConsent />
+        </AuthProvider>
       </body>
     </html>
   );

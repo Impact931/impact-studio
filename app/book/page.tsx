@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import {
   STUDIO_RENTALS,
   LIGHTING_BUNDLES,
@@ -10,18 +11,11 @@ import {
 } from '@/content/equipment-catalog';
 import { RENTAL_AGREEMENT } from '@/content/rental-agreement';
 import { BookingFormData, CartItem, EquipmentItem } from '@/types/booking';
+import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import SignaturePad from '@/components/booking/SignaturePad';
-
-const STEPS = [
-  'Equipment Selection',
-  'Booking Details',
-  'Insurance',
-  'Review & Sign',
-  'Checkout',
-] as const;
 
 const PRODUCTION_TYPES = [
   { value: 'corporate-headshots', label: 'Corporate Headshots' },
@@ -48,6 +42,7 @@ const STUDIO_RENTAL_MAP: Record<string, string> = {
 };
 
 export default function BookingPage() {
+  const { customer, loading: authLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -81,31 +76,52 @@ export default function BookingPage() {
     agreedToTerms: false,
   });
 
-  // --- Equipment selection state (separate from cart for UI) ---
+  // Pre-fill renter info from account
+  useEffect(() => {
+    if (customer) {
+      setForm((prev) => ({
+        ...prev,
+        renterName: prev.renterName || customer.name,
+        email: prev.email || customer.email,
+        phone: prev.phone || customer.phone,
+        company: prev.company || customer.company || '',
+      }));
+    }
+  }, [customer]);
+
+  const isInStudio = form.rentalMode === 'in_studio';
+
+  // Dynamic steps based on rental mode
+  // In-studio: includes Production Details step
+  // Out-of-studio (equipment only): skips production details
+  const STEPS = isInStudio
+    ? ['Equipment Selection', 'Booking Details', 'Production Details', 'Insurance', 'Review & Sign', 'Checkout']
+    : ['Equipment Selection', 'Booking Details', 'Insurance', 'Review & Sign', 'Checkout'];
+
+  // Map step indices to content
+  const getStepContent = (step: number): string => {
+    return STEPS[step];
+  };
+
+  // --- Equipment selection state ---
   const [selectedBundles, setSelectedBundles] = useState<Set<string>>(new Set());
   const [selectedAlacarte, setSelectedAlacarte] = useState<Set<string>>(new Set());
 
   // --- Build cart from selections ---
   const cart = useMemo(() => {
     const items: CartItem[] = [];
-    const isInStudio = form.rentalMode === 'in_studio';
 
-    // Studio rental (optional)
-    if (form.studioRentalType !== 'none') {
+    // Studio rental (in-studio only)
+    if (isInStudio && form.studioRentalType !== 'none') {
       const studioId = STUDIO_RENTAL_MAP[form.studioRentalType];
       const studioItem = STUDIO_RENTALS.find((r) => r.id === studioId);
-      if (studioItem) {
-        const price = isInStudio
-          ? studioItem.priceInStudio
-          : studioItem.priceOutOfStudio;
-        if (price > 0) {
-          items.push({
-            equipmentId: studioItem.id,
-            name: studioItem.name,
-            price,
-            quantity: 1,
-          });
-        }
+      if (studioItem && studioItem.priceInStudio > 0) {
+        items.push({
+          equipmentId: studioItem.id,
+          name: studioItem.name,
+          price: studioItem.priceInStudio,
+          quantity: 1,
+        });
       }
     }
 
@@ -122,16 +138,16 @@ export default function BookingPage() {
       }
     });
 
-    // A la carte
+    // A la carte — for out-of-studio, included items are NOT free
     selectedAlacarte.forEach((id) => {
       const item = ALACARTE_EQUIPMENT.find((a) => a.id === id);
       if (item) {
         const price = isInStudio ? item.priceInStudio : item.priceOutOfStudio;
-        if (price > 0) {
+        if (price > 0 || (!isInStudio && item.included)) {
           items.push({
             equipmentId: item.id,
             name: item.name,
-            price,
+            price: isInStudio ? item.priceInStudio : item.priceOutOfStudio,
             quantity: 1,
           });
         }
@@ -156,6 +172,7 @@ export default function BookingPage() {
     form.studioRentalType,
     form.rentalMode,
     form.damageWaiver,
+    isInStudio,
     selectedBundles,
     selectedAlacarte,
   ]);
@@ -204,14 +221,15 @@ export default function BookingPage() {
   // --- Validation ---
   const validateStep = (step: number): boolean => {
     const errs: Record<string, string> = {};
+    const stepName = getStepContent(step);
 
-    if (step === 0) {
+    if (stepName === 'Equipment Selection') {
       if (cart.length === 0) {
         errs.studioRentalType = 'Please select at least one item';
       }
     }
 
-    if (step === 1) {
+    if (stepName === 'Booking Details') {
       if (!form.rentalDate) errs.rentalDate = 'Date is required';
       if (!form.startTime) errs.startTime = 'Start time is required';
       if (!form.endTime) errs.endTime = 'End time is required';
@@ -220,16 +238,19 @@ export default function BookingPage() {
       if (!form.email.trim()) errs.email = 'Email is required';
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
         errs.email = 'Valid email is required';
+    }
+
+    if (stepName === 'Production Details') {
       if (!form.productionType) errs.productionType = 'Production type is required';
     }
 
-    if (step === 2) {
+    if (stepName === 'Insurance') {
       if (form.hasInsurance && !form.insuranceProvider.trim()) {
         errs.insuranceProvider = 'Insurance provider is required';
       }
     }
 
-    if (step === 3) {
+    if (stepName === 'Review & Sign') {
       if (!hasScrolledAgreement)
         errs.agreement = 'Please scroll through the full agreement';
       if (!form.signedName.trim()) errs.signedName = 'Typed name is required';
@@ -293,13 +314,12 @@ export default function BookingPage() {
     }
   };
 
-  // --- Render helpers for equipment items ---
+  // --- Render helpers ---
   const renderEquipmentCheckbox = (
     item: EquipmentItem,
     checked: boolean,
     onToggle: () => void,
   ) => {
-    const isInStudio = form.rentalMode === 'in_studio';
     const price = isInStudio ? item.priceInStudio : item.priceOutOfStudio;
     const included = isInStudio && item.included;
 
@@ -318,7 +338,12 @@ export default function BookingPage() {
           <div>
             <p className="text-sm text-brand-text">{item.name}</p>
             {item.description && (
-              <p className="text-xs text-brand-muted">{item.description}</p>
+              <p className="text-xs text-brand-muted">
+                {/* Show different description for included items based on rental mode */}
+                {item.included && !isInStudio
+                  ? 'Required rental for out-of-studio use'
+                  : item.description}
+              </p>
             )}
           </div>
         </div>
@@ -329,15 +354,59 @@ export default function BookingPage() {
     );
   };
 
+  const stepName = getStepContent(currentStep);
+  const isCheckoutStep = stepName === 'Checkout';
+
+  // --- Auth gate ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-brand-white flex items-center justify-center">
+        <p className="text-brand-muted">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!customer) {
+    return (
+      <div className="min-h-screen bg-brand-light">
+        <div className="mx-auto max-w-md px-6 py-24 text-center">
+          <h1 className="font-display text-2xl font-bold text-brand-text">
+            Account Required
+          </h1>
+          <p className="mt-3 text-brand-muted">
+            You need an account to book studio time or rent equipment. Create one
+            in under a minute.
+          </p>
+          <div className="mt-8 flex flex-col gap-3">
+            <Link
+              href="/account/create"
+              className="rounded-full bg-brand-accent px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-accent-hover"
+            >
+              Create Account
+            </Link>
+            <Link
+              href="/account/login"
+              className="text-sm font-medium text-brand-muted transition-colors hover:text-brand-text"
+            >
+              Already have an account? Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-brand-white text-brand-text">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
         {/* Header */}
         <h1 className="text-3xl font-display font-bold text-brand-text mb-2">
-          Book Impact Studio
+          {isInStudio ? 'Book Studio & Equipment' : 'Rent Equipment'}
         </h1>
         <p className="text-brand-muted mb-8">
-          Reserve equipment and studio time in just a few steps.
+          {isInStudio
+            ? 'Reserve studio time and equipment in just a few steps.'
+            : 'Select equipment and complete checkout — no production details needed.'}
         </p>
 
         {/* Step Indicator */}
@@ -349,9 +418,9 @@ export default function BookingPage() {
                   flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold shrink-0
                   ${
                     idx === currentStep
-                      ? 'bg-brand-accent text-brand-black'
+                      ? 'bg-brand-accent text-white'
                       : idx < currentStep
-                        ? 'bg-brand-accent-dim text-brand-black'
+                        ? 'bg-brand-accent-dim text-white'
                         : 'bg-brand-border text-brand-muted'
                   }
                 `}
@@ -375,21 +444,27 @@ export default function BookingPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Main content */}
           <div className="flex-1">
-            {/* ========== STEP 1: Equipment Selection ========== */}
-            {currentStep === 0 && (
+            {/* ========== Equipment Selection ========== */}
+            {stepName === 'Equipment Selection' && (
               <div className="space-y-6">
                 {/* Rental Mode Toggle */}
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
-                  <h2 className="text-lg font-semibold text-brand-text mb-4">
-                    Rental Location
+                  <h2 className="text-lg font-semibold text-brand-text mb-2">
+                    Rental Type
                   </h2>
+                  <p className="text-xs text-brand-muted mb-4">
+                    In-studio includes production details and stand usage. Out-of-studio is equipment rental only.
+                  </p>
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => updateForm('rentalMode', 'in_studio')}
+                      onClick={() => {
+                        updateForm('rentalMode', 'in_studio');
+                        setCurrentStep(0);
+                      }}
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-                        form.rentalMode === 'in_studio'
-                          ? 'bg-brand-accent text-brand-black'
+                        isInStudio
+                          ? 'bg-brand-accent text-white'
                           : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
@@ -397,20 +472,24 @@ export default function BookingPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateForm('rentalMode', 'out_of_studio')}
+                      onClick={() => {
+                        updateForm('rentalMode', 'out_of_studio');
+                        updateForm('studioRentalType', 'none');
+                        setCurrentStep(0);
+                      }}
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-                        form.rentalMode === 'out_of_studio'
-                          ? 'bg-brand-accent text-brand-black'
+                        !isInStudio
+                          ? 'bg-brand-accent text-white'
                           : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
-                      Out-of-Studio
+                      Equipment Only
                     </button>
                   </div>
                 </div>
 
                 {/* Studio Rental Type (in-studio only) */}
-                {form.rentalMode === 'in_studio' && (
+                {isInStudio && (
                   <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                     <h2 className="text-lg font-semibold text-brand-text mb-4">
                       Studio Rental
@@ -493,6 +572,11 @@ export default function BookingPage() {
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
                     A La Carte Equipment
                   </h2>
+                  {!isInStudio && (
+                    <p className="text-xs text-brand-muted mb-3">
+                      All equipment is charged at out-of-studio rates. Stands are not included and must be rented separately.
+                    </p>
+                  )}
                   <div className="flex flex-col gap-2">
                     {ALACARTE_EQUIPMENT.map((item) =>
                       renderEquipmentCheckbox(
@@ -525,8 +609,8 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* ========== STEP 2: Booking Details ========== */}
-            {currentStep === 1 && (
+            {/* ========== Booking Details ========== */}
+            {stepName === 'Booking Details' && (
               <div className="space-y-6">
                 {/* Date & Time */}
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
@@ -594,8 +678,12 @@ export default function BookingPage() {
                     />
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Production Details */}
+            {/* ========== Production Details (IN-STUDIO ONLY) ========== */}
+            {stepName === 'Production Details' && (
+              <div className="space-y-6">
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Production Details
@@ -621,7 +709,7 @@ export default function BookingPage() {
                           updateForm('description', e.target.value)
                         }
                         rows={3}
-                        className="w-full px-3 py-2 rounded-md text-sm bg-white border border-brand-border shadow-sm text-brand-text placeholder:text-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
+                        className="w-full px-3 py-2 rounded-md text-sm bg-white border border-brand-border text-brand-text placeholder:text-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
                         placeholder="Describe your production..."
                       />
                     </div>
@@ -692,28 +780,11 @@ export default function BookingPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Off-site equipment */}
-                <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={form.offSiteEquipment}
-                      onChange={(e) =>
-                        updateForm('offSiteEquipment', e.target.checked)
-                      }
-                      className="w-4 h-4 accent-brand-accent"
-                    />
-                    <span className="text-sm text-brand-text">
-                      I will be taking rented equipment off-site
-                    </span>
-                  </label>
-                </div>
               </div>
             )}
 
-            {/* ========== STEP 3: Insurance ========== */}
-            {currentStep === 2 && (
+            {/* ========== Insurance ========== */}
+            {stepName === 'Insurance' && (
               <div className="space-y-6">
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
@@ -729,7 +800,7 @@ export default function BookingPage() {
                       onClick={() => updateForm('hasInsurance', true)}
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         form.hasInsurance
-                          ? 'bg-brand-accent text-brand-black'
+                          ? 'bg-brand-accent text-white'
                           : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
@@ -743,7 +814,7 @@ export default function BookingPage() {
                       }}
                       className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                         !form.hasInsurance
-                          ? 'bg-brand-accent text-brand-black'
+                          ? 'bg-brand-accent text-white'
                           : 'bg-brand-light text-brand-muted hover:text-brand-text'
                       }`}
                     >
@@ -780,8 +851,8 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* ========== STEP 4: Review & Sign ========== */}
-            {currentStep === 3 && (
+            {/* ========== Review & Sign ========== */}
+            {stepName === 'Review & Sign' && (
               <div className="space-y-6">
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
@@ -854,8 +925,8 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* ========== STEP 5: Checkout ========== */}
-            {currentStep === 4 && (
+            {/* ========== Checkout ========== */}
+            {stepName === 'Checkout' && (
               <div className="space-y-6">
                 <div className="bg-white border border-brand-border shadow-sm rounded-lg p-5">
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
@@ -900,6 +971,8 @@ export default function BookingPage() {
                     Booking Details
                   </h2>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <dt className="text-brand-muted">Type</dt>
+                    <dd className="text-brand-text">{isInStudio ? 'In-Studio' : 'Equipment Only'}</dd>
                     <dt className="text-brand-muted">Date</dt>
                     <dd className="text-brand-text">{form.rentalDate}</dd>
                     <dt className="text-brand-muted">Time</dt>
@@ -910,12 +983,16 @@ export default function BookingPage() {
                     <dd className="text-brand-text">{form.renterName}</dd>
                     <dt className="text-brand-muted">Email</dt>
                     <dd className="text-brand-text">{form.email}</dd>
-                    <dt className="text-brand-muted">Production</dt>
-                    <dd className="text-brand-text">
-                      {PRODUCTION_TYPES.find(
-                        (t) => t.value === form.productionType,
-                      )?.label || form.productionType}
-                    </dd>
+                    {isInStudio && form.productionType && (
+                      <>
+                        <dt className="text-brand-muted">Production</dt>
+                        <dd className="text-brand-text">
+                          {PRODUCTION_TYPES.find(
+                            (t) => t.value === form.productionType,
+                          )?.label || form.productionType}
+                        </dd>
+                      </>
+                    )}
                     <dt className="text-brand-muted">Insurance</dt>
                     <dd className="text-brand-text">
                       {form.hasInsurance
@@ -943,7 +1020,7 @@ export default function BookingPage() {
             )}
 
             {/* Navigation */}
-            {currentStep < 4 && (
+            {!isCheckoutStep && (
               <div className="flex justify-between mt-8">
                 <Button
                   variant="secondary"
@@ -957,10 +1034,10 @@ export default function BookingPage() {
             )}
           </div>
 
-          {/* Cart sidebar (steps 0-3) */}
-          {currentStep < 4 && (
+          {/* Cart sidebar */}
+          {!isCheckoutStep && (
             <div className="lg:w-72 shrink-0">
-              <div className="sticky top-8 bg-white border border-brand-border shadow-sm rounded-lg p-5">
+              <div className="sticky top-20 bg-white border border-brand-border shadow-sm rounded-lg p-5">
                 <h3 className="text-sm font-semibold text-brand-text mb-3">
                   Cart
                 </h3>

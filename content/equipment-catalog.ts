@@ -86,7 +86,7 @@ export const ALACARTE_EQUIPMENT: EquipmentItem[] = [
     priceInStudio: 0,
     priceOutOfStudio: 1000,
     included: true,
-    description: 'Included with in-studio rentals',
+    description: 'Included in-studio — rental required for out-of-studio',
   },
   {
     id: 'alacarte-octa-softbox',
