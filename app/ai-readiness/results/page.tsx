@@ -160,13 +160,8 @@ function ResultsContent() {
   const { score, tier, tierDescription, strengths, signals, formData, submittedAt } =
     result;
 
-  const mailSubject = encodeURIComponent(
-    `AI Workflow Review — ${formData.company}`,
-  );
-  const mailBody = encodeURIComponent(
-    `Hi Jayson,\n\nI just completed the AI Readiness Assessment.\n\nCompany: ${formData.company}\nScore: ${score}/100 (${tier})\n\nI'd love to schedule a complimentary AI Workflow Review to discuss the results.\n\nBest,\n${formData.contactName}`,
-  );
-  const mailtoLink = `mailto:jayson@jhr-photography.com?subject=${mailSubject}&body=${mailBody}`;
+  const bookingLink =
+    'https://calendar.google.com/appointments/schedules/AcZssZ3y2VgrZ5Zh9tIyvBM0cz7vEQxFLbXk0Xw3lwC1vkYGWLxp9OqmFWVHNp8ic9ia4S_xk781q0w7';
 
   return (
     <div className="min-h-screen bg-white">
@@ -283,7 +278,7 @@ function ResultsContent() {
               action plan for your team.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a href={mailtoLink}>
+              <a href={bookingLink} target="_blank" rel="noopener noreferrer">
                 <Button size="lg">Schedule Your AI Workflow Review</Button>
               </a>
             </div>
