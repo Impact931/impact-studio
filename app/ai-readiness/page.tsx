@@ -122,8 +122,8 @@ const BIGGEST_CHALLENGES = [
 ];
 
 const REVIEW_OPTIONS = [
-  "Yes, let's schedule it",
-  'Maybe — send me my results first',
+  "Yes - let's schedule it",
+  'Maybe - send me my results first',
   'Not right now',
 ];
 

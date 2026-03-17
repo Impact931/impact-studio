@@ -73,7 +73,7 @@ export async function sendAssessmentNotification(result: AssessmentResult) {
   </div>
 
   <h3>Review Interest</h3>
-  <p style="font-size:16px;font-weight:bold;color:${formData.interestedInReview === 'Yes, let\'s schedule it' ? '#059669' : '#D97706'};">
+  <p style="font-size:16px;font-weight:bold;color:${formData.interestedInReview === 'Yes - let\'s schedule it' ? '#059669' : '#D97706'};">
     ${formData.interestedInReview}
   </p>
 
