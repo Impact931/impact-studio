@@ -223,6 +223,85 @@ export async function updateNotionClientStripe(
   });
 }
 
+/** Update client profile fields in Notion */
+export async function updateNotionClientProfile(
+  email: string,
+  updates: {
+    name?: string;
+    company?: string;
+    phone?: string;
+    bio?: string;
+    instagram?: string;
+    linkedin?: string;
+    twitter?: string;
+    facebook?: string;
+    website?: string;
+  },
+): Promise<void> {
+  const pageId = await findNotionClient(email);
+  if (!pageId) {
+    console.warn(`Notion client not found for email: ${email}`);
+    return;
+  }
+
+  const properties: Record<string, unknown> = {};
+
+  if (updates.name !== undefined) {
+    properties['Client'] = {
+      title: [{ text: { content: updates.name } }],
+    };
+  }
+  if (updates.company !== undefined) {
+    properties['Company'] = {
+      rich_text: [{ text: { content: updates.company } }],
+    };
+  }
+  if (updates.phone !== undefined) {
+    properties['Phone'] = { phone_number: updates.phone || null };
+  }
+  if (updates.bio !== undefined) {
+    properties['Bio'] = {
+      rich_text: [{ text: { content: updates.bio.slice(0, 2000) } }],
+    };
+  }
+  if (updates.instagram !== undefined) {
+    properties['Instagram'] = { url: updates.instagram || null };
+  }
+  if (updates.linkedin !== undefined) {
+    properties['LinkedIn'] = { url: updates.linkedin || null };
+  }
+  if (updates.twitter !== undefined) {
+    properties['X (Twitter)'] = { url: updates.twitter || null };
+  }
+  if (updates.facebook !== undefined) {
+    properties['Facebook'] = { url: updates.facebook || null };
+  }
+  if (updates.website !== undefined) {
+    properties['Website'] = { url: updates.website || null };
+  }
+
+  if (Object.keys(properties).length > 0) {
+    await notionPatch(`https://api.notion.com/v1/pages/${pageId}`, {
+      properties,
+    });
+  }
+}
+
+/** Update profile photo URL in Notion */
+export async function updateNotionClientProfilePhoto(
+  email: string,
+  photoUrl: string,
+): Promise<void> {
+  const pageId = await findNotionClient(email);
+  if (!pageId) return;
+
+  await notionPatch(`https://api.notion.com/v1/pages/${pageId}`, {
+    properties: {
+      'Profile Photo': { url: photoUrl },
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Rentals DB — "Impact Studio — Rentals"
 // Properties: Rental (title), Client (relation→Clients), Equipment (relation),

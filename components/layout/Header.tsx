@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
@@ -11,6 +12,27 @@ const NAV_LINKS = [
   { href: '/studio-rental', label: 'Studio Rental' },
   { href: '/equipment-rental', label: 'Equipment Rental' },
 ];
+
+function CartIcon() {
+  const { itemCount, setDrawerOpen } = useCart();
+
+  return (
+    <button
+      onClick={() => setDrawerOpen(true)}
+      className="relative flex h-9 w-9 items-center justify-center rounded-md text-brand-text transition-colors hover:text-brand-accent"
+      aria-label={`Cart (${itemCount} items)`}
+    >
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+      </svg>
+      {itemCount > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white">
+          {itemCount > 9 ? '9+' : itemCount}
+        </span>
+      )}
+    </button>
+  );
+}
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -46,10 +68,14 @@ export default function Header() {
           {!loading && (
             <>
               {customer ? (
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-brand-muted">
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/account/profile"
+                    className="text-xs font-medium text-brand-muted transition-colors hover:text-brand-accent"
+                  >
                     {customer.name}
-                  </span>
+                  </Link>
+                  <CartIcon />
                   <Link
                     href="/book"
                     className="rounded-full bg-brand-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-accent-hover"
@@ -65,6 +91,7 @@ export default function Header() {
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
+                  <CartIcon />
                   <Link
                     href="/account/login"
                     className="text-sm font-medium text-brand-muted transition-colors hover:text-brand-text"
@@ -83,27 +110,30 @@ export default function Header() {
           )}
         </nav>
 
-        {/* Mobile menu button */}
-        <button
-          type="button"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-md md:hidden"
-          aria-label="Toggle menu"
-        >
-          <svg
-            className="h-6 w-6 text-brand-text"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth="2"
-            stroke="currentColor"
+        {/* Mobile menu button + cart */}
+        <div className="flex items-center gap-2 md:hidden">
+          <CartIcon />
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="flex h-10 w-10 items-center justify-center rounded-md"
+            aria-label="Toggle menu"
           >
-            {mobileOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
+            <svg
+              className="h-6 w-6 text-brand-text"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+              stroke="currentColor"
+            >
+              {mobileOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile Nav */}
@@ -123,13 +153,17 @@ export default function Header() {
           <div className="mt-2 border-t border-brand-border pt-3">
             {customer ? (
               <>
-                <p className="py-2 text-xs text-brand-muted">
-                  Signed in as {customer.name}
-                </p>
+                <Link
+                  href="/account/profile"
+                  onClick={() => setMobileOpen(false)}
+                  className="block py-2 text-sm font-medium text-brand-accent"
+                >
+                  My Profile
+                </Link>
                 <Link
                   href="/book"
                   onClick={() => setMobileOpen(false)}
-                  className="block rounded-full bg-brand-accent px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-accent-hover"
+                  className="mt-2 block rounded-full bg-brand-accent px-5 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-accent-hover"
                 >
                   Book Now
                 </Link>

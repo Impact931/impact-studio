@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { EquipmentItem } from '@/types/booking';
 import { formatPrice } from '@/content/equipment-catalog';
+import { useCart } from '@/contexts/CartContext';
 import PricingToggle from './PricingToggle';
 
 interface EquipmentCatalogProps {
@@ -27,6 +28,37 @@ function PriceDisplay({ item, mode }: { item: EquipmentItem; mode: 'in_studio' |
   }
 
   return <span className="text-lg font-bold text-brand-accent">{formatPrice(price)}</span>;
+}
+
+function AddToCartButton({ item, mode }: { item: EquipmentItem; mode: 'in_studio' | 'out_of_studio' }) {
+  const { addItem, items } = useCart();
+  const price = getPrice(item, mode);
+  const isInCart = items.some((i) => i.equipmentId === item.id);
+
+  // Don't show button for included/studio-only items
+  if ((item.included && mode === 'in_studio') || (price === 0 && mode === 'out_of_studio')) {
+    return null;
+  }
+
+  return (
+    <button
+      onClick={() =>
+        addItem({
+          equipmentId: item.id,
+          name: item.name,
+          price,
+          quantity: 1,
+        })
+      }
+      className={`mt-3 w-full rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+        isInCart
+          ? 'bg-brand-accent/10 text-brand-accent border border-brand-accent/30'
+          : 'bg-brand-accent text-white hover:bg-brand-accent-hover'
+      }`}
+    >
+      {isInCart ? 'In Cart — Add Another' : 'Add to Cart'}
+    </button>
+  );
 }
 
 export default function EquipmentCatalog({
@@ -62,6 +94,7 @@ export default function EquipmentCatalog({
                 <p className="mt-1 text-sm text-brand-muted">
                   {item.name.split('—')[1]?.trim() ?? item.name}
                 </p>
+                <AddToCartButton item={item} mode={mode} />
               </div>
             ))}
           </div>
@@ -88,6 +121,7 @@ export default function EquipmentCatalog({
               <div className="mt-4">
                 <PriceDisplay item={item} mode={mode} />
               </div>
+              <AddToCartButton item={item} mode={mode} />
             </div>
           ))}
         </div>
@@ -99,22 +133,33 @@ export default function EquipmentCatalog({
           A La Carte
         </h3>
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {alacarte.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-lg border border-brand-border bg-white px-5 py-4 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <div>
-                <p className="font-medium text-brand-text">{item.name}</p>
-                {item.description && (
-                  <p className="mt-0.5 text-xs text-brand-muted">
-                    {item.description}
-                  </p>
-                )}
+          {alacarte.map((item) => {
+            const price = getPrice(item, mode);
+            const isIncluded = item.included && mode === 'in_studio';
+            const isStudioOnly = price === 0 && mode === 'out_of_studio';
+
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-lg border border-brand-border bg-white px-5 py-4 shadow-sm transition-shadow hover:shadow-md"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-brand-text">{item.name}</p>
+                  {item.description && (
+                    <p className="mt-0.5 text-xs text-brand-muted">
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 ml-4">
+                  <PriceDisplay item={item} mode={mode} />
+                  {!isIncluded && !isStudioOnly && (
+                    <AddToCartButton item={item} mode={mode} />
+                  )}
+                </div>
               </div>
-              <PriceDisplay item={item} mode={mode} />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

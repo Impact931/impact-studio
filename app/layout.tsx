@@ -4,7 +4,9 @@ import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CookieConsent from '@/components/layout/CookieConsent';
+import CartDrawer from '@/components/layout/CartDrawer';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { CartProvider } from '@/contexts/CartContext';
 import SessionWrapper from '@/components/providers/SessionWrapper';
 
 const inter = Inter({
@@ -35,10 +37,13 @@ export default function RootLayout({
       <body className="bg-brand-white font-sans text-brand-text antialiased">
         <SessionWrapper>
           <AuthProvider>
-            <Header />
-            <main>{children}</main>
-            <Footer />
-            <CookieConsent />
+            <CartProvider>
+              <Header />
+              <CartDrawer />
+              <main>{children}</main>
+              <Footer />
+              <CookieConsent />
+            </CartProvider>
           </AuthProvider>
         </SessionWrapper>
       </body>
