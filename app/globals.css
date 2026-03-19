@@ -28,3 +28,22 @@ html {
   background: #C8A96E;
   border-radius: 3px;
 }
+
+/* Hide site chrome on admin pages */
+body.admin-page > div > header,
+body.admin-page > div > footer,
+body.admin-page .cookie-consent {
+  display: none !important;
+}
+
+/* Tiptap editor styles */
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9CA3AF;
+  pointer-events: none;
+  height: 0;
+}

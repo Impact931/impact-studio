@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getItem, queryItems } from '@/lib/dynamodb';
+import { updateNotionClientLogin } from '@/lib/notion-crm';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
         { status: 401 },
       );
     }
+
+    // Update last login in Notion (non-blocking)
+    updateNotionClientLogin(email).catch((err) =>
+      console.error('Notion login sync error:', err),
+    );
 
     return NextResponse.json({
       customer: {

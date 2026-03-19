@@ -26,6 +26,7 @@ export interface BookingFormData {
 
   // Rental
   rentalDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   studioRentalType: 'none' | 'hourly' | 'half_day' | 'full_day';

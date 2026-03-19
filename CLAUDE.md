@@ -41,11 +41,14 @@ Professional studio and equipment rental platform for Impact Studio (JHR Photogr
 - Email notifications via AWS SES (Reply-To: jayson + angus @jhr-photography.com)
 - Cookie consent banner with localStorage preference
 
-## Notion Integration (pending)
-- Clients DB: 22b5143cf7c245cdb943cdc522887223
-- Rentals DB: 00fb231905734cdaacebfc8c4c636c38
+## Notion Integration (active)
+- Clients DB: 22b5143cf7c245cdb943cdc522887223 — synced on registration, login, booking
+- Rentals DB: 00fb231905734cdaacebfc8c4c636c38 — synced on confirmed booking (webhook)
 - Equipment DB: 88e1f5e856044f589f9b626fca05ca9f
 - Services DB: f98e3f1bec024b44ba2a382f19823c8c
+- AI Readiness DB: 325c2a32df0d80d79090caae298ec80f — synced on assessment submit
+- Sync code: `lib/notion-crm.ts` (clients/rentals), `lib/notion-assessment.ts` (assessments)
+- Parent page: Impact Studio Home (28bc2a32df0d82aea86c81483bf24a6f)
 
 ## Build & Deploy
 ```bash

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { putItem, queryItems } from '@/lib/dynamodb';
+import { createNotionClient } from '@/lib/notion-crm';
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,6 +56,16 @@ export async function POST(req: NextRequest) {
       SK: email,
       customerId,
     });
+
+    // Sync to Notion Clients DB (non-blocking)
+    createNotionClient({
+      customerId,
+      name,
+      email,
+      phone,
+      company: company || undefined,
+      createdAt: now,
+    }).catch((err) => console.error('Notion client sync error:', err));
 
     return NextResponse.json({
       customer: {

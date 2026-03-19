@@ -62,6 +62,7 @@ export default function BookingPage() {
     specialRequirements: [],
     contentDisclosure: [],
     rentalDate: '',
+    endDate: '',
     startTime: '',
     endTime: '',
     studioRentalType: 'none',
@@ -230,7 +231,11 @@ export default function BookingPage() {
     }
 
     if (stepName === 'Booking Details') {
-      if (!form.rentalDate) errs.rentalDate = 'Date is required';
+      if (!form.rentalDate) errs.rentalDate = 'Start date is required';
+      if (!form.endDate) errs.endDate = 'End date is required';
+      if (form.rentalDate && form.endDate && form.endDate < form.rentalDate) {
+        errs.endDate = 'End date cannot be before start date';
+      }
       if (!form.startTime) errs.startTime = 'Start time is required';
       if (!form.endTime) errs.endTime = 'End time is required';
       if (!form.renterName.trim()) errs.renterName = 'Name is required';
@@ -617,13 +622,26 @@ export default function BookingPage() {
                   <h2 className="text-lg font-semibold text-brand-text mb-4">
                     Date &amp; Time
                   </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
-                      label="Date"
+                      label="Start Date"
                       type="date"
                       value={form.rentalDate}
-                      onChange={(e) => updateForm('rentalDate', e.target.value)}
+                      onChange={(e) => {
+                        updateForm('rentalDate', e.target.value);
+                        // Auto-set end date if empty or before start
+                        if (!form.endDate || form.endDate < e.target.value) {
+                          updateForm('endDate', e.target.value);
+                        }
+                      }}
                       error={errors.rentalDate}
+                    />
+                    <Input
+                      label="End Date"
+                      type="date"
+                      value={form.endDate}
+                      onChange={(e) => updateForm('endDate', e.target.value)}
+                      error={errors.endDate}
                     />
                     <Input
                       label="Start Time"
@@ -973,12 +991,10 @@ export default function BookingPage() {
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <dt className="text-brand-muted">Type</dt>
                     <dd className="text-brand-text">{isInStudio ? 'In-Studio' : 'Equipment Only'}</dd>
-                    <dt className="text-brand-muted">Date</dt>
-                    <dd className="text-brand-text">{form.rentalDate}</dd>
-                    <dt className="text-brand-muted">Time</dt>
-                    <dd className="text-brand-text">
-                      {form.startTime} &ndash; {form.endTime}
-                    </dd>
+                    <dt className="text-brand-muted">Start</dt>
+                    <dd className="text-brand-text">{form.rentalDate} at {form.startTime}</dd>
+                    <dt className="text-brand-muted">End</dt>
+                    <dd className="text-brand-text">{form.endDate} at {form.endTime}</dd>
                     <dt className="text-brand-muted">Renter</dt>
                     <dd className="text-brand-text">{form.renterName}</dd>
                     <dt className="text-brand-muted">Email</dt>
@@ -1008,14 +1024,23 @@ export default function BookingPage() {
                   </div>
                 )}
 
-                <Button
-                  size="lg"
-                  className="w-full"
-                  loading={submitting}
-                  onClick={handleCheckout}
-                >
-                  Proceed to Payment
-                </Button>
+                <div className="flex gap-4">
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={goPrev}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    size="lg"
+                    className="flex-1"
+                    loading={submitting}
+                    onClick={handleCheckout}
+                  >
+                    Proceed to Payment
+                  </Button>
+                </div>
               </div>
             )}
 

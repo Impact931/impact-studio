@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CookieConsent from '@/components/layout/CookieConsent';
 import { AuthProvider } from '@/contexts/AuthContext';
+import SessionWrapper from '@/components/providers/SessionWrapper';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -32,12 +33,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
       <body className="bg-brand-white font-sans text-brand-text antialiased">
-        <AuthProvider>
-          <Header />
-          <main>{children}</main>
-          <Footer />
-          <CookieConsent />
-        </AuthProvider>
+        <SessionWrapper>
+          <AuthProvider>
+            <Header />
+            <main>{children}</main>
+            <Footer />
+            <CookieConsent />
+          </AuthProvider>
+        </SessionWrapper>
       </body>
     </html>
   );

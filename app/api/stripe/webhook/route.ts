@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { updateItem, getItem } from '@/lib/dynamodb';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { createNotionRental, updateNotionClientRentalStats, updateNotionClientStripe } from '@/lib/notion-crm';
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -82,8 +83,10 @@ export async function POST(req: NextRequest) {
         const renterEmail = booking.email as string;
         const renterName = booking.renterName as string;
         const rentalDate = booking.rentalDate as string;
+        const endDate = (booking.endDate as string) || rentalDate;
         const startTime = booking.startTime as string;
         const endTime = booking.endTime as string;
+        const isMultiDay = endDate !== rentalDate;
         const totalAmount = booking.totalAmount as number;
         const equipment = (booking.equipment || []) as Array<{ name: string; quantity: number; price: number }>;
 
@@ -123,8 +126,9 @@ export async function POST(req: NextRequest) {
 
               <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
                 <tr><td style="padding:6px 0;color:#666;width:140px;">Booking ID</td><td style="padding:6px 0;font-family:monospace;">${bookingId}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Date</td><td style="padding:6px 0;">${rentalDate}</td></tr>
-                <tr><td style="padding:6px 0;color:#666;">Time</td><td style="padding:6px 0;">${startTime} – ${endTime}</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">Start</td><td style="padding:6px 0;">${rentalDate} at ${startTime}</td></tr>
+                <tr><td style="padding:6px 0;color:#666;">End</td><td style="padding:6px 0;">${endDate} at ${endTime}</td></tr>
+                ${isMultiDay ? `<tr><td style="padding:6px 0;color:#666;">Duration</td><td style="padding:6px 0;">${Math.ceil((new Date(endDate).getTime() - new Date(rentalDate).getTime()) / 86400000) + 1} day(s)</td></tr>` : ''}
                 ${booking.company ? `<tr><td style="padding:6px 0;color:#666;">Company</td><td style="padding:6px 0;">${booking.company}</td></tr>` : ''}
                 <tr><td style="padding:6px 0;color:#666;">Insurance</td><td style="padding:6px 0;">${booking.hasInsurance ? booking.insuranceProvider : 'None on file'}</td></tr>
               </table>
@@ -175,8 +179,8 @@ export async function POST(req: NextRequest) {
               <tr><td style="padding:6px 0;color:#666;">Company</td><td style="padding:6px 0;">${booking.company || '—'}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Email</td><td style="padding:6px 0;">${renterEmail}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Phone</td><td style="padding:6px 0;">${booking.phone || '—'}</td></tr>
-              <tr><td style="padding:6px 0;color:#666;">Date</td><td style="padding:6px 0;">${rentalDate}</td></tr>
-              <tr><td style="padding:6px 0;color:#666;">Time</td><td style="padding:6px 0;">${startTime} – ${endTime}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">Start</td><td style="padding:6px 0;">${rentalDate} at ${startTime}</td></tr>
+              <tr><td style="padding:6px 0;color:#666;">End</td><td style="padding:6px 0;">${endDate} at ${endTime}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Production</td><td style="padding:6px 0;">${booking.productionType || '—'}</td></tr>
               <tr><td style="padding:6px 0;color:#666;">Insurance</td><td style="padding:6px 0;">${booking.hasInsurance ? booking.insuranceProvider : '<strong style="color:#c0392b;">No — $500 hold</strong>'}</td></tr>
             </table>
@@ -201,6 +205,42 @@ export async function POST(req: NextRequest) {
           </div>
           `,
         );
+
+        // Sync to Notion CRM (non-blocking)
+        const rentalMode = (booking.rentalMode as string) || 'in_studio';
+        createNotionRental({
+          bookingId,
+          renterName,
+          email: renterEmail,
+          phone: booking.phone as string,
+          company: booking.company as string | undefined,
+          rentalDate,
+          endDate: (booking.endDate as string) || rentalDate,
+          startTime,
+          endTime,
+          rentalMode: rentalMode as 'in_studio' | 'out_of_studio',
+          productionType: booking.productionType as string | undefined,
+          equipment,
+          totalAmount,
+          hasInsurance: booking.hasInsurance as boolean,
+          insuranceProvider: booking.insuranceProvider as string | undefined,
+          stripePaymentIntentId: booking.stripePaymentIntentId as string | undefined,
+          createdAt: booking.createdAt as string,
+        }).catch((err) => console.error('Notion rental sync error:', err));
+
+        updateNotionClientRentalStats(renterEmail, totalAmount).catch((err) =>
+          console.error('Notion client stats sync error:', err),
+        );
+
+        // Sync Stripe Customer ID to client record
+        if (booking.stripeCustomerId) {
+          updateNotionClientStripe(
+            renterEmail,
+            booking.stripeCustomerId as string,
+          ).catch((err) =>
+            console.error('Notion Stripe sync error:', err),
+          );
+        }
       }
     }
 

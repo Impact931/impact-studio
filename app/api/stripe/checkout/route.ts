@@ -33,10 +33,14 @@ export async function POST(req: NextRequest) {
       'rentalDate',
       'startTime',
       'endTime',
-      'productionType',
       'signedName',
       'signatureDataUrl',
     ];
+
+    // productionType is only required for in-studio bookings
+    if (body.rentalMode === 'in_studio') {
+      required.push('productionType');
+    }
 
     for (const field of required) {
       if (!body[field]) {
