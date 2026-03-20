@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import type { PageContent, PageSection } from '@/types/inline-editor';
+import { useEditMode } from './EditModeContext';
 
 interface ContentContextType {
   pageSlug: string;
@@ -54,6 +55,13 @@ export function ContentProvider({
   const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { setContentActive } = useEditMode();
+
+  // Signal that a ContentProvider is active (for EditModeToggle visibility)
+  useEffect(() => {
+    setContentActive(true);
+    return () => setContentActive(false);
+  }, [setContentActive]);
 
   const setContent = useCallback(
     (newContent: PageContent) => {

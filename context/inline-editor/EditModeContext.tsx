@@ -10,6 +10,9 @@ interface EditModeContextType {
   isAdmin: boolean;
   isSaving: boolean;
   setIsSaving: (v: boolean) => void;
+  /** True when a ContentProvider is mounted (editable page) */
+  contentActive: boolean;
+  setContentActive: (v: boolean) => void;
 }
 
 const EditModeContext = createContext<EditModeContextType>({
@@ -19,6 +22,8 @@ const EditModeContext = createContext<EditModeContextType>({
   isAdmin: false,
   isSaving: false,
   setIsSaving: () => {},
+  contentActive: false,
+  setContentActive: () => {},
 });
 
 const STORAGE_KEY = 'impact-studio-edit-mode';
@@ -28,6 +33,7 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   const isAdmin = !!session?.user;
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [contentActive, setContentActive] = useState(false);
 
   // Restore from sessionStorage on mount
   useEffect(() => {
@@ -74,7 +80,18 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   }, [isAdmin]);
 
   return (
-    <EditModeContext.Provider value={{ isEditMode, toggleEditMode, setEditMode, isAdmin, isSaving, setIsSaving }}>
+    <EditModeContext.Provider
+      value={{
+        isEditMode,
+        toggleEditMode,
+        setEditMode,
+        isAdmin,
+        isSaving,
+        setIsSaving,
+        contentActive,
+        setContentActive,
+      }}
+    >
       {children}
     </EditModeContext.Provider>
   );

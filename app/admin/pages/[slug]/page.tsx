@@ -9,10 +9,27 @@ import EditModeToggle from '@/components/inline-editor/EditModeToggle';
 import type { PageContent } from '@/types/inline-editor';
 import Link from 'next/link';
 
-const DEFAULT_CONTENT: PageContent = {
+// Default content for each page slug
+import { homeDefaults } from '@/content/page-defaults/home';
+import { aboutDefaults } from '@/content/page-defaults/about';
+import { studioRentalDefaults } from '@/content/page-defaults/studio-rental';
+import { equipmentRentalDefaults } from '@/content/page-defaults/equipment-rental';
+
+const PAGE_DEFAULTS: Record<string, PageContent> = {
+  home: homeDefaults,
+  about: aboutDefaults,
+  'studio-rental': studioRentalDefaults,
+  'equipment-rental': equipmentRentalDefaults,
+};
+
+const EMPTY_CONTENT: PageContent = {
   sections: [],
   seo: {},
 };
+
+function getDefaults(slug: string): PageContent {
+  return PAGE_DEFAULTS[slug] || EMPTY_CONTENT;
+}
 
 function PageEditorInner({ slug }: { slug: string }) {
   const [content, setContent] = useState<PageContent | null>(null);
@@ -25,17 +42,22 @@ function PageEditorInner({ slug }: { slug: string }) {
         const res = await fetch(`/api/admin/content/sections?slug=${slug}`);
         if (res.ok) {
           const data = await res.json();
-          setContent({
-            sections: data.sections || [],
-            seo: data.seo || {},
-            updatedAt: data.updatedAt,
-          });
+          // If DynamoDB has saved content, use it; otherwise use page defaults
+          if (data.sections && data.sections.length > 0) {
+            setContent({
+              sections: data.sections,
+              seo: data.seo || {},
+              updatedAt: data.updatedAt,
+            });
+          } else {
+            setContent(getDefaults(slug));
+          }
         } else {
-          setContent(DEFAULT_CONTENT);
+          setContent(getDefaults(slug));
         }
       } catch {
         setError('Failed to load content');
-        setContent(DEFAULT_CONTENT);
+        setContent(getDefaults(slug));
       } finally {
         setLoading(false);
       }
@@ -60,7 +82,7 @@ function PageEditorInner({ slug }: { slug: string }) {
   }
 
   return (
-    <ContentProvider slug={slug} initialContent={content || DEFAULT_CONTENT}>
+    <ContentProvider slug={slug} initialContent={content || getDefaults(slug)}>
       <div className="min-h-screen">
         {/* Editor header */}
         <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-3">

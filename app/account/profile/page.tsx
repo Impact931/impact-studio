@@ -103,23 +103,78 @@ export default function ProfilePage() {
     }
   };
 
+  const optimizeImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const MAX_SIZE = 1200;
+        let { width, height } = img;
+        if (width > MAX_SIZE || height > MAX_SIZE) {
+          const ratio = Math.min(MAX_SIZE / width, MAX_SIZE / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('Canvas conversion failed'))),
+          'image/webp',
+          0.85,
+        );
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !customer) return;
     setUploading(true);
+    setMessage('');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('customerId', customer.customerId);
-      const res = await fetch('/api/account/profile-photo', {
+      // Optimize image client-side
+      const optimized = await optimizeImage(file);
+      const contentType = 'image/webp';
+
+      // Get presigned URL
+      const presignRes = await fetch('/api/account/profile-photo/presign', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerId: customer.customerId,
+          contentType,
+          filename: file.name,
+        }),
       });
-      if (!res.ok) throw new Error('Upload failed');
-      const data = await res.json();
+      if (!presignRes.ok) throw new Error('Failed to get upload URL');
+      const { uploadUrl, key } = await presignRes.json();
+
+      // Upload directly to S3
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: optimized,
+      });
+      if (!uploadRes.ok) throw new Error('Upload to storage failed');
+
+      // Confirm upload
+      const completeRes = await fetch('/api/account/profile-photo/presign', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: customer.customerId, key }),
+      });
+      if (!completeRes.ok) throw new Error('Failed to save photo');
+      const { url } = await completeRes.json();
+
       setProfile((prev) =>
-        prev ? { ...prev, profilePhotoUrl: data.url } : prev,
+        prev ? { ...prev, profilePhotoUrl: url } : prev,
       );
+      setMessage('Photo updated successfully');
+      setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Upload failed');
     } finally {
