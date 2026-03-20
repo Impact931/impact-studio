@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const customers = await scanItems(
       'begins_with(PK, :pk) AND SK = :sk',
-      { ':pk': 'CUSTOMER#', ':sk': 'PROFILE' },
+      { ':pk': 'CUSTOMER#', ':sk': 'META' },
     );
 
     const members = customers

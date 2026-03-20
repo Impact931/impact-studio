@@ -13,7 +13,7 @@ export async function GET() {
     const [customers, bookings] = await Promise.all([
       scanItems(
         'begins_with(PK, :pk) AND SK = :sk',
-        { ':pk': 'CUSTOMER#', ':sk': 'PROFILE' },
+        { ':pk': 'CUSTOMER#', ':sk': 'META' },
       ),
       scanItems(
         'begins_with(PK, :pk) AND SK = :sk',

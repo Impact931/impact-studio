@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 interface EditModeContextType {
   isEditMode: boolean;
   toggleEditMode: () => void;
+  setEditMode: (v: boolean) => void;
   isAdmin: boolean;
   isSaving: boolean;
   setIsSaving: (v: boolean) => void;
@@ -14,10 +15,13 @@ interface EditModeContextType {
 const EditModeContext = createContext<EditModeContextType>({
   isEditMode: false,
   toggleEditMode: () => {},
+  setEditMode: () => {},
   isAdmin: false,
   isSaving: false,
   setIsSaving: () => {},
 });
+
+const STORAGE_KEY = 'impact-studio-edit-mode';
 
 export function EditModeProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
@@ -25,10 +29,28 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const toggleEditMode = useCallback(() => {
-    if (!isAdmin) return;
-    setIsEditMode((prev) => !prev);
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    if (isAdmin && typeof window !== 'undefined') {
+      const stored = sessionStorage.getItem(STORAGE_KEY);
+      if (stored === 'true') setIsEditMode(true);
+    }
   }, [isAdmin]);
+
+  const setEditMode = useCallback(
+    (value: boolean) => {
+      if (!isAdmin && value) return;
+      setIsEditMode(value);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(STORAGE_KEY, String(value));
+      }
+    },
+    [isAdmin],
+  );
+
+  const toggleEditMode = useCallback(() => {
+    setEditMode(!isEditMode);
+  }, [isEditMode, setEditMode]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -43,11 +65,16 @@ export function EditModeProvider({ children }: { children: ReactNode }) {
 
   // Exit edit mode if session ends
   useEffect(() => {
-    if (!isAdmin) setIsEditMode(false);
+    if (!isAdmin) {
+      setIsEditMode(false);
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+    }
   }, [isAdmin]);
 
   return (
-    <EditModeContext.Provider value={{ isEditMode, toggleEditMode, isAdmin, isSaving, setIsSaving }}>
+    <EditModeContext.Provider value={{ isEditMode, toggleEditMode, setEditMode, isAdmin, isSaving, setIsSaving }}>
       {children}
     </EditModeContext.Provider>
   );

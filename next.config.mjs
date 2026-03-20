@@ -8,6 +8,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.cloudfront.net',
       },
+      {
+        protocol: 'https',
+        hostname: '*.amazonaws.com',
+      },
     ],
   },
   async headers() {

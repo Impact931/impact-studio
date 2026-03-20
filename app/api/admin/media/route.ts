@@ -3,6 +3,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { listObjects, uploadToS3, deleteObject, getPublicUrl } from '@/lib/s3';
 
+export const runtime = 'nodejs';
+// Allow up to 50MB uploads
+export const maxDuration = 60;
+
 const MEDIA_PREFIX = 'media/';
 
 export async function GET() {
