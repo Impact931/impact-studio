@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const BUCKET = process.env.S3_BUCKET_NAME!;
@@ -47,4 +52,67 @@ export function getPublicUrl(key: string): string {
     return `https://${CLOUDFRONT_DOMAIN}/${key}`;
   }
   return `https://${BUCKET}.s3.${REGION}.amazonaws.com/${key}`;
+}
+
+/**
+ * Upload a buffer directly to S3.
+ */
+export async function uploadToS3(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+) {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+  return getPublicUrl(key);
+}
+
+/**
+ * List objects in S3 under a given prefix.
+ */
+export async function listObjects(prefix: string) {
+  const items: { key: string; size: number; lastModified: string }[] = [];
+  let continuationToken: string | undefined;
+
+  do {
+    const result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: BUCKET,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const obj of result.Contents || []) {
+      if (obj.Key) {
+        items.push({
+          key: obj.Key,
+          size: obj.Size || 0,
+          lastModified: obj.LastModified?.toISOString() || '',
+        });
+      }
+    }
+
+    continuationToken = result.NextContinuationToken;
+  } while (continuationToken);
+
+  return items;
+}
+
+/**
+ * Delete an object from S3.
+ */
+export async function deleteObject(key: string) {
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    }),
+  );
 }

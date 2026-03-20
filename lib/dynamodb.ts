@@ -5,6 +5,7 @@ import {
   GetCommand,
   QueryCommand,
   UpdateCommand,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME!;
@@ -75,6 +76,32 @@ export async function queryItems(
 
   const result = await docClient.send(new QueryCommand(params));
   return result.Items ?? [];
+}
+
+export async function scanItems(
+  filterExpression: string,
+  expressionValues: Record<string, unknown>,
+  expressionNames?: Record<string, string>,
+) {
+  const allItems: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const params: ConstructorParameters<typeof ScanCommand>[0] = {
+      TableName: TABLE_NAME,
+      FilterExpression: filterExpression,
+      ExpressionAttributeValues: expressionValues,
+      ExclusiveStartKey: lastKey,
+    };
+    if (expressionNames) {
+      params.ExpressionAttributeNames = expressionNames;
+    }
+    const result = await docClient.send(new ScanCommand(params));
+    if (result.Items) allItems.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  return allItems;
 }
 
 export async function updateItem(

@@ -1,80 +1,165 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { Users, CalendarDays, DollarSign, TrendingUp } from 'lucide-react';
 
-const PAGES = [
-  { slug: 'home', title: 'Homepage', path: '/' },
-  { slug: 'about', title: 'About', path: '/about' },
-  { slug: 'studio-rental', title: 'Studio Rental', path: '/studio-rental' },
-  { slug: 'equipment-rental', title: 'Equipment Rental', path: '/equipment-rental' },
-  { slug: 'policies', title: 'Policies', path: '/policies' },
-  { slug: 'privacy', title: 'Privacy Policy', path: '/privacy' },
-  { slug: 'ai-policy', title: 'AI Policy', path: '/ai-policy' },
-];
+interface DashboardStats {
+  totalMembers: number;
+  totalRentals: number;
+  totalRevenue: number;
+  recentMembers: { name: string; email: string; createdAt: string }[];
+  recentRentals: { renterName: string; rentalDate: string; total: number; status: string }[];
+}
+
+function StatCard({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  color: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">{value}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-lg ${color} flex items-center justify-center`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/stats');
+        if (res.ok) {
+          setStats(await res.json());
+        }
+      } catch {
+        // Stats will show as 0
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const firstName = session?.user?.name?.split(' ')[0] || session?.user?.email?.split('@')[0] || 'Admin';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Image src="/images/logo-dark.png" alt="Impact Studio" width={120} height={34} className="h-8 w-auto" />
-            <span className="text-sm font-medium text-brand-muted">Admin</span>
+    <div className="p-6 lg:p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Welcome back, {firstName}</h1>
+        <p className="text-gray-500 mt-1">Here&apos;s what&apos;s happening at Impact Studio.</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <StatCard
+          label="Total Members"
+          value={loading ? '—' : String(stats?.totalMembers ?? 0)}
+          icon={<Users className="w-6 h-6 text-blue-600" />}
+          color="bg-blue-50"
+        />
+        <StatCard
+          label="Total Rentals"
+          value={loading ? '—' : String(stats?.totalRentals ?? 0)}
+          icon={<CalendarDays className="w-6 h-6 text-purple-600" />}
+          color="bg-purple-50"
+        />
+        <StatCard
+          label="Revenue"
+          value={loading ? '—' : `$${(stats?.totalRevenue ?? 0).toLocaleString()}`}
+          icon={<DollarSign className="w-6 h-6 text-green-600" />}
+          color="bg-green-50"
+        />
+        <StatCard
+          label="This Month"
+          value={loading ? '—' : `$${(stats?.recentRentals?.reduce((sum, r) => sum + (r.total || 0), 0) ?? 0).toLocaleString()}`}
+          icon={<TrendingUp className="w-6 h-6 text-amber-600" />}
+          color="bg-amber-50"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Recent Members */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Recent Members</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-brand-muted">{session?.user?.email}</span>
-            <button
-              onClick={() => signOut({ callbackUrl: '/admin/login' })}
-              className="text-sm text-red-500 hover:text-red-600"
-            >
-              Sign Out
-            </button>
+          <div className="divide-y divide-gray-100">
+            {loading ? (
+              <div className="px-6 py-8 text-center text-gray-400">Loading...</div>
+            ) : stats?.recentMembers?.length ? (
+              stats.recentMembers.slice(0, 5).map((m, i) => (
+                <div key={i} className="px-6 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{m.name}</p>
+                    <p className="text-xs text-gray-500">{m.email}</p>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {new Date(m.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="px-6 py-8 text-center text-gray-400">No members yet</div>
+            )}
           </div>
         </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <h1 className="text-2xl font-bold text-brand-text mb-2">Content Management</h1>
-        <p className="text-brand-muted mb-8">
-          Edit page content inline. Click a page to open the editor, or visit the page and press <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs font-mono">⌘⇧E</kbd> to toggle edit mode.
-        </p>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {PAGES.map((page) => (
-            <Link
-              key={page.slug}
-              href={`/admin/pages/${page.slug}`}
-              className="flex items-center justify-between p-5 bg-white rounded-xl border border-gray-200 hover:border-brand-accent/50 hover:shadow-sm transition-all group"
-            >
-              <div>
-                <h3 className="font-semibold text-brand-text group-hover:text-brand-accent transition-colors">
-                  {page.title}
-                </h3>
-                <p className="text-sm text-brand-muted">{page.path}</p>
-              </div>
-              <span className="text-brand-muted group-hover:text-brand-accent transition-colors">→</span>
-            </Link>
-          ))}
-        </div>
-
-        <div className="mt-12 p-6 bg-white rounded-xl border border-gray-200">
-          <h2 className="font-semibold text-brand-text mb-3">Quick Actions</h2>
-          <div className="flex gap-3">
-            <Link
-              href="/"
-              target="_blank"
-              className="px-4 py-2 text-sm bg-brand-light text-brand-text rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              View Live Site →
-            </Link>
+        {/* Recent Rentals */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Recent Rentals</h2>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {loading ? (
+              <div className="px-6 py-8 text-center text-gray-400">Loading...</div>
+            ) : stats?.recentRentals?.length ? (
+              stats.recentRentals.slice(0, 5).map((r, i) => (
+                <div key={i} className="px-6 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{r.renterName}</p>
+                    <p className="text-xs text-gray-500">{r.rentalDate}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900">
+                      ${(r.total || 0).toLocaleString()}
+                    </p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      r.status === 'confirmed'
+                        ? 'bg-green-50 text-green-700'
+                        : r.status === 'pending'
+                        ? 'bg-amber-50 text-amber-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {r.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="px-6 py-8 text-center text-gray-400">No rentals yet</div>
+            )}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

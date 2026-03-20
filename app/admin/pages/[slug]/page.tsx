@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { SessionProvider } from 'next-auth/react';
 import { ContentProvider } from '@/context/inline-editor/ContentContext';
 import { EditModeProvider } from '@/context/inline-editor/EditModeContext';
 import EditablePage from '@/components/inline-editor/EditablePage';
@@ -67,8 +66,8 @@ function PageEditorInner({ slug }: { slug: string }) {
         <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-3">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link href="/admin" className="text-sm text-brand-muted hover:text-brand-text">
-                ← Dashboard
+              <Link href="/admin/pages" className="text-sm text-brand-muted hover:text-brand-text">
+                ← Pages
               </Link>
               <span className="text-gray-300">/</span>
               <span className="text-sm font-medium text-brand-text capitalize">{slug.replace(/-/g, ' ')}</span>
@@ -92,10 +91,8 @@ export default function PageEditorPage() {
   const slug = params.slug as string;
 
   return (
-    <SessionProvider>
-      <EditModeProvider>
-        <PageEditorInner slug={slug} />
-      </EditModeProvider>
-    </SessionProvider>
+    <EditModeProvider>
+      <PageEditorInner slug={slug} />
+    </EditModeProvider>
   );
 }
