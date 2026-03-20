@@ -18,6 +18,7 @@ import {
   CheckCircle,
   CalendarDays,
   ExternalLink,
+  Package,
 } from 'lucide-react';
 
 interface NavItem {
@@ -43,6 +44,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Operations',
     items: [
+      { label: 'Catalog', href: '/admin/catalog', icon: <Package className="w-5 h-5" /> },
       { label: 'Members', href: '/admin/members', icon: <Users className="w-5 h-5" /> },
       { label: 'Rentals', href: '/admin/rentals', icon: <CalendarDays className="w-5 h-5" /> },
     ],

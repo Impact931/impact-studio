@@ -53,8 +53,19 @@ function FeatureGridView({ section }: { section: PageSection & { type: 'feature-
           {section.data.cards.map((card, i) => (
             <div key={i} className="bg-white rounded-xl p-6 shadow-sm">
               {card.icon && <div className="text-3xl mb-3">{card.icon}</div>}
-              <h3 className="text-lg font-semibold text-brand-text mb-2">{card.title}</h3>
-              <p className="text-brand-muted text-sm">{card.description}</p>
+              <EditableText
+                sectionId={section.id}
+                field={`cards.${i}.title`}
+                as="h3"
+                className="text-lg font-semibold text-brand-text mb-2"
+              />
+              <EditableText
+                sectionId={section.id}
+                field={`cards.${i}.description`}
+                as="p"
+                className="text-brand-muted text-sm"
+                multiline
+              />
             </div>
           ))}
         </div>
@@ -109,10 +120,28 @@ function TestimonialsView({ section }: { section: PageSection & { type: 'testimo
         <div className="grid md:grid-cols-2 gap-8">
           {section.data.items.map((item, i) => (
             <div key={i} className="bg-brand-light rounded-xl p-6">
-              <p className="text-brand-text italic mb-4">&ldquo;{item.quote}&rdquo;</p>
+              <EditableText
+                sectionId={section.id}
+                field={`items.${i}.quote`}
+                as="p"
+                className="text-brand-text italic mb-4"
+                multiline
+              />
               <div>
-                <p className="font-semibold text-brand-text">{item.author}</p>
-                {item.role && <p className="text-sm text-brand-muted">{item.role}</p>}
+                <EditableText
+                  sectionId={section.id}
+                  field={`items.${i}.author`}
+                  as="p"
+                  className="font-semibold text-brand-text"
+                />
+                {item.role && (
+                  <EditableText
+                    sectionId={section.id}
+                    field={`items.${i}.role`}
+                    as="p"
+                    className="text-sm text-brand-muted"
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -123,6 +152,7 @@ function TestimonialsView({ section }: { section: PageSection & { type: 'testimo
 }
 
 function FAQView({ section }: { section: PageSection & { type: 'faq' } }) {
+  const { isEditMode } = useEditMode();
   return (
     <section className="py-16 px-6">
       <div className="max-w-3xl mx-auto">
@@ -131,12 +161,36 @@ function FAQView({ section }: { section: PageSection & { type: 'faq' } }) {
         )}
         <div className="space-y-4">
           {section.data.items.map((item, i) => (
-            <details key={i} className="border border-brand-border rounded-lg">
-              <summary className="px-6 py-4 cursor-pointer font-medium text-brand-text hover:bg-gray-50">
-                {item.question}
-              </summary>
-              <div className="px-6 pb-4 text-brand-muted">{item.answer}</div>
-            </details>
+            <div key={i} className="border border-brand-border rounded-lg">
+              {isEditMode ? (
+                <>
+                  <div className="px-6 py-4">
+                    <EditableText
+                      sectionId={section.id}
+                      field={`items.${i}.question`}
+                      as="div"
+                      className="font-medium text-brand-text"
+                    />
+                  </div>
+                  <div className="px-6 pb-4">
+                    <EditableText
+                      sectionId={section.id}
+                      field={`items.${i}.answer`}
+                      as="div"
+                      className="text-brand-muted"
+                      multiline
+                    />
+                  </div>
+                </>
+              ) : (
+                <details>
+                  <summary className="px-6 py-4 cursor-pointer font-medium text-brand-text hover:bg-gray-50">
+                    {item.question}
+                  </summary>
+                  <div className="px-6 pb-4 text-brand-muted">{item.answer}</div>
+                </details>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -150,8 +204,18 @@ function StatsView({ section }: { section: PageSection & { type: 'stats' } }) {
       <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
         {section.data.items.map((item, i) => (
           <div key={i}>
-            <div className="text-3xl font-bold text-brand-accent mb-1">{item.value}</div>
-            <div className="text-sm text-brand-muted">{item.label}</div>
+            <EditableText
+              sectionId={section.id}
+              field={`items.${i}.value`}
+              as="div"
+              className="text-3xl font-bold text-brand-accent mb-1"
+            />
+            <EditableText
+              sectionId={section.id}
+              field={`items.${i}.label`}
+              as="div"
+              className="text-sm text-brand-muted"
+            />
           </div>
         ))}
       </div>
@@ -164,7 +228,13 @@ function ColumnsView({ section }: { section: PageSection & { type: 'columns' } }
     <section className="py-16 px-6">
       <div className={`max-w-6xl mx-auto grid gap-8 md:grid-cols-${section.data.columns.length}`}>
         {section.data.columns.map((col, i) => (
-          <div key={i} className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: col.content }} />
+          <EditableText
+            key={i}
+            sectionId={section.id}
+            field={`columns.${i}.content`}
+            className="prose prose-sm max-w-none"
+            multiline
+          />
         ))}
       </div>
     </section>

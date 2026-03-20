@@ -94,12 +94,18 @@ export function ContentProvider({
             if (parts.length === 1) {
               return { ...s, data: { ...s.data, [field]: value } } as PageSection;
             }
-            // Nested update
+            // Nested update — supports array indices (e.g. "cards.0.title")
             const data = { ...s.data } as Record<string, unknown>;
-            let current = data;
+            let current: Record<string, unknown> = data;
             for (let i = 0; i < parts.length - 1; i++) {
-              current[parts[i]] = { ...(current[parts[i]] as Record<string, unknown>) };
-              current = current[parts[i]] as Record<string, unknown>;
+              const key = parts[i];
+              const val = current[key];
+              if (Array.isArray(val)) {
+                current[key] = [...val];
+              } else {
+                current[key] = { ...(val as Record<string, unknown>) };
+              }
+              current = current[key] as Record<string, unknown>;
             }
             current[parts[parts.length - 1]] = value;
             return { ...s, data } as PageSection;
