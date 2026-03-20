@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getProduct, updateProduct, deleteProduct } from '@/lib/catalog';
+import { syncProductToNotion, archiveNotionProduct } from '@/lib/notion-catalog';
 
 export const runtime = 'nodejs';
 
@@ -50,6 +51,22 @@ export async function PATCH(
 
     await updateProduct(params.id, product.category, body);
     const updated = await getProduct(params.id);
+
+    // Sync to Notion (non-blocking)
+    if (updated) {
+      syncProductToNotion({
+        productId: updated.productId,
+        name: updated.name,
+        description: updated.description,
+        category: updated.category,
+        priceInStudio: updated.priceInStudio,
+        priceOutOfStudio: updated.priceOutOfStudio,
+        active: updated.active,
+        included: updated.included,
+        sortOrder: updated.sortOrder,
+      }).catch((err) => console.error('Notion product sync error:', err));
+    }
+
     return NextResponse.json({ product: updated });
   } catch (err) {
     console.error('Catalog update error:', err);
@@ -75,6 +92,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
     await deleteProduct(params.id, product.category);
+
+    // Archive in Notion (non-blocking)
+    archiveNotionProduct(params.id).catch((err) =>
+      console.error('Notion product archive error:', err),
+    );
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Catalog delete error:', err);

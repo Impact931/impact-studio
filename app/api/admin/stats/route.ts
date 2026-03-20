@@ -17,12 +17,12 @@ export async function GET() {
       ),
       scanItems(
         'begins_with(PK, :pk) AND SK = :sk',
-        { ':pk': 'BOOKING#', ':sk': 'DETAILS' },
+        { ':pk': 'BOOKING#', ':sk': 'META' },
       ),
     ]);
 
     const totalRevenue = bookings.reduce(
-      (sum, b) => sum + (Number(b.total) || 0),
+      (sum, b) => sum + (Number(b.totalAmount || b.total) || 0),
       0,
     );
 
@@ -49,7 +49,7 @@ export async function GET() {
       .map((b) => ({
         renterName: b.renterName,
         rentalDate: b.rentalDate,
-        total: Number(b.total) || 0,
+        total: Number(b.totalAmount || b.total) || 0,
         status: b.status || 'pending',
       }));
 

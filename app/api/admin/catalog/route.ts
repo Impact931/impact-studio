@@ -7,6 +7,7 @@ import {
   generateProductId,
   seedCatalogIfEmpty,
 } from '@/lib/catalog';
+import { syncProductToNotion } from '@/lib/notion-catalog';
 
 export const runtime = 'nodejs';
 
@@ -59,6 +60,19 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       updatedAt: now,
     });
+
+    // Sync to Notion (non-blocking)
+    syncProductToNotion({
+      productId: product.productId,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      priceInStudio: product.priceInStudio,
+      priceOutOfStudio: product.priceOutOfStudio,
+      active: product.active,
+      included: product.included,
+      sortOrder: product.sortOrder,
+    }).catch((err) => console.error('Notion product sync error:', err));
 
     return NextResponse.json({ product });
   } catch (err) {

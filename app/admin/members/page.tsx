@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Mail, Phone, Calendar, CreditCard, X, ExternalLink, Building } from 'lucide-react';
+import { Search, Mail, Phone, Calendar, CreditCard, X, ExternalLink, Building, KeyRound, Loader2, Check } from 'lucide-react';
 
 interface Member {
   customerId: string;
@@ -54,6 +54,9 @@ export default function MembersPage() {
   const [search, setSearch] = useState('');
   const [selectedMember, setSelectedMember] = useState<MemberDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetStatus, setResetStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+  const [resetMessage, setResetMessage] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -72,8 +75,40 @@ export default function MembersPage() {
     load();
   }, []);
 
+  async function handlePasswordReset(customerId: string) {
+    if (!newPassword || newPassword.length < 8) {
+      setResetMessage('Password must be at least 8 characters');
+      setResetStatus('error');
+      return;
+    }
+    setResetStatus('saving');
+    try {
+      const res = await fetch(`/api/admin/members/${customerId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (res.ok) {
+        setResetStatus('done');
+        setResetMessage('Password updated successfully');
+        setNewPassword('');
+        setTimeout(() => { setResetStatus('idle'); setResetMessage(''); }, 3000);
+      } else {
+        const data = await res.json();
+        setResetMessage(data.error || 'Reset failed');
+        setResetStatus('error');
+      }
+    } catch {
+      setResetMessage('Reset failed');
+      setResetStatus('error');
+    }
+  }
+
   async function openDetail(customerId: string) {
     setDetailLoading(true);
+    setNewPassword('');
+    setResetStatus('idle');
+    setResetMessage('');
     try {
       const res = await fetch(`/api/admin/members/${customerId}`);
       if (res.ok) {
@@ -354,6 +389,41 @@ export default function MembersPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Password Reset */}
+                    <div className="border-t border-gray-100 pt-3 mt-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <KeyRound className="w-4 h-4 text-gray-400" />
+                        <p className="text-xs font-medium text-gray-500">Reset Password</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="New password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                        />
+                        <button
+                          onClick={() => handlePasswordReset(selectedMember.customer.customerId)}
+                          disabled={resetStatus === 'saving'}
+                          className="px-3 py-1.5 text-xs font-medium bg-brand-accent text-white rounded-lg hover:bg-brand-accent-hover disabled:opacity-50 transition-colors"
+                        >
+                          {resetStatus === 'saving' ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : resetStatus === 'done' ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            'Reset'
+                          )}
+                        </button>
+                      </div>
+                      {resetMessage && (
+                        <p className={`text-xs mt-1 ${resetStatus === 'error' ? 'text-red-500' : 'text-green-600'}`}>
+                          {resetMessage}
+                        </p>
+                      )}
+                    </div>
 
                     <p className="text-xs text-gray-400 mt-3 border-t border-gray-100 pt-3">
                       Joined {new Date(selectedMember.customer.createdAt).toLocaleDateString()}

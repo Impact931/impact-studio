@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const bookings = await scanItems(
       'begins_with(PK, :pk) AND SK = :sk',
-      { ':pk': 'BOOKING#', ':sk': 'DETAILS' },
+      { ':pk': 'BOOKING#', ':sk': 'META' },
     );
 
     const rentals = bookings
@@ -23,7 +23,7 @@ export async function GET() {
         rentalDate: b.rentalDate,
         endDate: b.endDate,
         rentalMode: b.rentalMode,
-        total: Number(b.total) || 0,
+        total: Number(b.totalAmount) || Number(b.total) || 0,
         status: b.status || 'pending',
         createdAt: b.createdAt,
       }))

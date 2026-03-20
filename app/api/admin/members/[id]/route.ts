@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getItem } from '@/lib/dynamodb';
+import { getItem, updateItem } from '@/lib/dynamodb';
 import { stripe } from '@/lib/stripe';
+import bcrypt from 'bcryptjs';
 
 export async function GET(
   req: NextRequest,
@@ -99,5 +100,58 @@ export async function GET(
   } catch (err) {
     console.error('Member detail error:', err);
     return NextResponse.json({ error: 'Failed to load member' }, { status: 500 });
+  }
+}
+
+/**
+ * PATCH /api/admin/members/[id] — Update member (password reset, profile edits)
+ */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const customerId = params.id;
+    const customer = await getItem(`CUSTOMER#${customerId}`, 'META');
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const updates: Record<string, unknown> = {};
+
+    // Password reset
+    if (body.newPassword) {
+      if (body.newPassword.length < 8) {
+        return NextResponse.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 },
+        );
+      }
+      updates.password = await bcrypt.hash(body.newPassword, 12);
+    }
+
+    // Profile field updates
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.phone !== undefined) updates.phone = body.phone;
+    if (body.company !== undefined) updates.company = body.company;
+    if (body.email !== undefined) updates.email = body.email;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
+    updates.updatedAt = new Date().toISOString();
+    await updateItem(`CUSTOMER#${customerId}`, 'META', updates);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error('Member update error:', err);
+    return NextResponse.json({ error: 'Failed to update member' }, { status: 500 });
   }
 }

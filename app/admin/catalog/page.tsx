@@ -13,6 +13,9 @@ import {
   EyeOff,
   Loader2,
   ChevronDown,
+  RefreshCw,
+  Upload,
+  Download,
 } from 'lucide-react';
 
 interface Product {
@@ -215,6 +218,7 @@ export default function CatalogPage() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const [message, setMessage] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -299,6 +303,37 @@ export default function CatalogPage() {
     await handleSave(product.productId, { active: !product.active });
   };
 
+  const handleSync = async (direction: 'pull' | 'push') => {
+    const label = direction === 'pull' ? 'Notion → Site' : 'Site → Notion';
+    if (!window.confirm(`Sync ${label}? ${direction === 'pull' ? 'This will overwrite site products with Notion data.' : 'This will push all site products to Notion.'}`)) return;
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/admin/catalog/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await fetchProducts();
+        const parts = [];
+        if (data.created) parts.push(`${data.created} created`);
+        if (data.updated) parts.push(`${data.updated} updated`);
+        if (data.removed) parts.push(`${data.removed} removed`);
+        setMessage(`Notion sync complete: ${parts.join(', ') || `${data.synced} synced`}`);
+      } else {
+        setMessage(`Sync error: ${data.error}`);
+      }
+      setTimeout(() => setMessage(''), 5000);
+    } catch (err) {
+      console.error('Sync error:', err);
+      setMessage('Sync failed');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const filtered = filter === 'all' ? products : products.filter((p) => p.category === filter);
   const categories = ['all', 'studio', 'bundle', 'alacarte', 'addon'];
 
@@ -319,14 +354,35 @@ export default function CatalogPage() {
             Manage equipment, pricing, and availability.
           </p>
         </div>
-        <button
-          onClick={handleCreate}
-          disabled={saving}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-accent text-white text-sm font-medium rounded-lg hover:bg-brand-accent-hover disabled:opacity-50 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Notion Sync */}
+          <button
+            onClick={() => handleSync('pull')}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            title="Pull from Notion"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <span className="hidden sm:inline">Pull Notion</span>
+          </button>
+          <button
+            onClick={() => handleSync('push')}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            title="Push to Notion"
+          >
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            <span className="hidden sm:inline">Push Notion</span>
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-brand-accent text-white text-sm font-medium rounded-lg hover:bg-brand-accent-hover disabled:opacity-50 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {message && (
