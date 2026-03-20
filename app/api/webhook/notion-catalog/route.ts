@@ -5,21 +5,84 @@ import {
   updateProduct,
   generateProductId,
 } from '@/lib/catalog';
-import { pullProductsFromNotion } from '@/lib/notion-catalog';
 
 export const runtime = 'nodejs';
 
+// Category mapping from Notion select values
+const CATEGORY_FROM_NOTION: Record<string, string> = {
+  'Studio Rentals': 'studio',
+  'Lighting Bundles': 'bundle',
+  'A La Carte': 'alacarte',
+  'Add-ons': 'addon',
+  'Lighting': 'alacarte',
+  'Camera': 'alacarte',
+  'Lens': 'alacarte',
+  'Grip': 'alacarte',
+  'Backdrop': 'alacarte',
+  'Accessory': 'alacarte',
+  'Modifier': 'alacarte',
+  'Audio': 'addon',
+  'Tether Equipment': 'alacarte',
+  'Computer Accessory': 'alacarte',
+  'Other': 'addon',
+};
+
+function extractRichText(prop: Record<string, unknown>): string {
+  const rt = prop?.rich_text as Array<{ plain_text: string }> | undefined;
+  return rt?.[0]?.plain_text || '';
+}
+
+function extractTitle(prop: Record<string, unknown>): string {
+  const t = prop?.title as Array<{ plain_text: string }> | undefined;
+  return t?.[0]?.plain_text || '';
+}
+
 /**
- * POST /api/webhook/notion-catalog — Webhook to sync Notion Equipment DB → Site
+ * Parse a single product from Notion page properties.
+ * Handles both:
+ *  - Notion automation webhook payload (properties nested in data.properties)
+ *  - Direct page object (properties at top level)
+ */
+function parseNotionProduct(properties: Record<string, unknown>) {
+  const props = properties as Record<string, Record<string, unknown>>;
+
+  const siteProductId = extractRichText(props['Site Product ID'] || {});
+  const name = extractTitle(props['Item'] || {});
+  const description = extractRichText(props['Description'] || {});
+  const categorySelect = (props['Category'] as Record<string, Record<string, string>>)?.select?.name || '';
+  const category = CATEGORY_FROM_NOTION[categorySelect] || 'alacarte';
+  const inPrice = (props['In-Studio Price'] as Record<string, number>)?.number || 0;
+  const outPrice = (props['Out-of-Studio Price'] as Record<string, number>)?.number || 0;
+  const active = (props['Active'] as Record<string, boolean>)?.checkbox ?? true;
+  const included = (props['Included In-Studio'] as Record<string, boolean>)?.checkbox ?? false;
+  const sortOrder = (props['Sort Order'] as Record<string, number>)?.number ?? 999;
+
+  return {
+    siteProductId,
+    name,
+    description,
+    category,
+    priceInStudio: Math.round(inPrice * 100), // dollars → cents
+    priceOutOfStudio: Math.round(outPrice * 100),
+    active,
+    included,
+    sortOrder,
+  };
+}
+
+/**
+ * POST /api/webhook/notion-catalog — Notion button fires this webhook
  *
- * Called by Notion automation or n8n workflow when products are updated in Notion.
- * Protected by a shared secret in the Authorization header or query param.
+ * Accepts Notion automation "Send webhook" payload containing the page data.
+ * Parses the record and upserts it into DynamoDB.
  *
- * Usage:
- *   POST /api/webhook/notion-catalog
- *   Authorization: Bearer <WEBHOOK_SECRET>
+ * Auth: secret query param or Authorization header.
  *
- *   Or: POST /api/webhook/notion-catalog?secret=<WEBHOOK_SECRET>
+ * Notion automation setup:
+ *   1. Add a Button property "Sync to Site" in your Equipment DB
+ *   2. Configure automation: When button clicked → Send webhook
+ *   3. URL: https://impactstudio931.com/api/webhook/notion-catalog?secret=YOUR_SECRET
+ *   4. Include page properties in the webhook body
  */
 export async function POST(req: NextRequest) {
   // Validate webhook secret
@@ -33,67 +96,82 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const notionProducts = await pullProductsFromNotion();
-    if (notionProducts.length === 0) {
-      return NextResponse.json({
-        success: true,
-        synced: 0,
-        message: 'No products found in Notion Equipment DB',
-      });
+    const body = await req.json();
+
+    // Notion automation sends: { data: { ... page object ... } }
+    // The page object has: { id, properties, ... }
+    const pageData = body.data || body;
+    const properties = pageData.properties;
+
+    if (!properties) {
+      return NextResponse.json(
+        { error: 'No properties found in payload. Expected Notion page data.' },
+        { status: 400 },
+      );
     }
 
+    const product = parseNotionProduct(properties);
+
+    if (!product.name) {
+      return NextResponse.json(
+        { error: 'Product name (Item) is required' },
+        { status: 400 },
+      );
+    }
+
+    // Look up existing product in DynamoDB
     const existingProducts = await listProducts();
-    const existingMap = new Map(existingProducts.map((p) => [p.productId, p]));
-
     const now = new Date().toISOString();
-    let created = 0;
-    let updated = 0;
 
-    for (const np of notionProducts) {
-      const existing = existingMap.get(np.productId);
+    // If this record has a Site Product ID, find and update it
+    if (product.siteProductId) {
+      const existing = existingProducts.find((p) => p.productId === product.siteProductId);
+
       if (existing) {
-        await updateProduct(np.productId, existing.category, {
-          name: np.name,
-          description: np.description,
-          category: np.category,
-          priceInStudio: np.priceInStudio,
-          priceOutOfStudio: np.priceOutOfStudio,
-          active: np.active,
-          included: np.included,
-          sortOrder: np.sortOrder,
+        await updateProduct(product.siteProductId, existing.category, {
+          name: product.name,
+          description: product.description,
+          category: product.category as 'studio' | 'bundle' | 'alacarte' | 'addon',
+          priceInStudio: product.priceInStudio,
+          priceOutOfStudio: product.priceOutOfStudio,
+          active: product.active,
+          included: product.included,
+          sortOrder: product.sortOrder,
         });
-        updated++;
-      } else {
-        await createProduct({
-          productId: np.productId.includes('-') ? np.productId : generateProductId(),
-          name: np.name,
-          description: np.description,
-          category: np.category,
-          priceInStudio: np.priceInStudio,
-          priceOutOfStudio: np.priceOutOfStudio,
-          active: np.active,
-          included: np.included,
-          sortOrder: np.sortOrder,
-          createdAt: now,
-          updatedAt: now,
+
+        return NextResponse.json({
+          success: true,
+          action: 'updated',
+          productId: product.siteProductId,
+          name: product.name,
         });
-        created++;
       }
     }
 
-    // Don't auto-delete DynamoDB products not found in Notion.
-    // Only synced products (with Site Product ID) come back from pull,
-    // so deletion would incorrectly remove products not yet pushed.
+    // No existing match — create new product
+    const productId = product.siteProductId || generateProductId();
+    await createProduct({
+      productId,
+      name: product.name,
+      description: product.description,
+      category: product.category as 'studio' | 'bundle' | 'alacarte' | 'addon',
+      priceInStudio: product.priceInStudio,
+      priceOutOfStudio: product.priceOutOfStudio,
+      active: product.active,
+      included: product.included,
+      sortOrder: product.sortOrder,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     return NextResponse.json({
       success: true,
-      synced: created + updated,
-      created,
-      updated,
-      timestamp: now,
+      action: 'created',
+      productId,
+      name: product.name,
     });
   } catch (err) {
-    console.error('Notion webhook sync error:', err);
+    console.error('Notion webhook error:', err);
     return NextResponse.json(
       { error: 'Sync failed', details: String(err) },
       { status: 500 },
