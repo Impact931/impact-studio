@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { listObjects, uploadToS3, deleteObject, getPublicUrl } from '@/lib/s3';
+import { listMediaRecords, deleteMediaRecord, getMediaRecord } from '@/lib/media';
 
 export const runtime = 'nodejs';
-// Allow up to 50MB uploads
-export const maxDuration = 60;
 
-const MEDIA_PREFIX = 'media/';
-
+/**
+ * GET /api/admin/media — List all media from DynamoDB
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -16,12 +15,16 @@ export async function GET() {
   }
 
   try {
-    const objects = await listObjects(MEDIA_PREFIX);
-    const files = objects.map((obj) => ({
-      key: obj.key,
-      url: getPublicUrl(obj.key),
-      size: obj.size,
-      lastModified: obj.lastModified,
+    const records = await listMediaRecords();
+    const files = records.map((r) => ({
+      key: r.s3Key,
+      url: r.publicUrl,
+      size: r.fileSize,
+      lastModified: r.updatedAt || r.createdAt,
+      mediaId: r.mediaId,
+      filename: r.filename,
+      mediaType: r.mediaType,
+      status: r.status,
     }));
 
     return NextResponse.json({ files });
@@ -31,34 +34,9 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    }
-
-    // Sanitize filename
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const key = `${MEDIA_PREFIX}${Date.now()}-${safeName}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    const url = await uploadToS3(key, buffer, file.type || 'application/octet-stream');
-
-    return NextResponse.json({ key, url });
-  } catch (err) {
-    console.error('Media upload error:', err);
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-  }
-}
-
+/**
+ * DELETE /api/admin/media — Delete media by mediaId or key
+ */
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -66,14 +44,24 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
+  const mediaId = searchParams.get('mediaId');
   const key = searchParams.get('key');
 
-  if (!key || !key.startsWith(MEDIA_PREFIX)) {
-    return NextResponse.json({ error: 'Invalid key' }, { status: 400 });
+  if (!mediaId && !key) {
+    return NextResponse.json({ error: 'mediaId or key required' }, { status: 400 });
   }
 
   try {
-    await deleteObject(key);
+    if (mediaId) {
+      await deleteMediaRecord(mediaId);
+    } else if (key) {
+      // Find by key — search through records
+      const records = await listMediaRecords();
+      const match = records.find((r) => r.s3Key === key);
+      if (match) {
+        await deleteMediaRecord(match.mediaId);
+      }
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Media delete error:', err);

@@ -6,6 +6,7 @@ import {
   QueryCommand,
   UpdateCommand,
   ScanCommand,
+  DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 
 const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME!;
@@ -127,6 +128,15 @@ export async function updateItem(
       ExpressionAttributeNames: expressionNames,
       ExpressionAttributeValues: expressionValues,
       ReturnValues: 'ALL_NEW',
+    }),
+  );
+}
+
+export async function deleteItem(pk: string, sk: string) {
+  return docClient.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: pk, SK: sk },
     }),
   );
 }
