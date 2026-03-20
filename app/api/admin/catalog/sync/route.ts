@@ -5,7 +5,6 @@ import {
   listProducts,
   createProduct,
   updateProduct,
-  deleteProduct,
   generateProductId,
 } from '@/lib/catalog';
 import { pullProductsFromNotion, syncProductToNotion } from '@/lib/notion-catalog';
@@ -64,12 +63,10 @@ export async function POST(req: Request) {
 
     const existingProducts = await listProducts();
     const existingMap = new Map(existingProducts.map((p) => [p.productId, p]));
-    const notionIds = new Set(notionProducts.map((p) => p.productId));
 
     const now = new Date().toISOString();
     let created = 0;
     let updated = 0;
-    let removed = 0;
 
     // Upsert Notion products into DynamoDB
     for (const np of notionProducts) {
@@ -106,21 +103,15 @@ export async function POST(req: Request) {
       }
     }
 
-    // Remove products not in Notion (only in pull mode)
-    if (direction === 'pull') {
-      for (const existing of existingProducts) {
-        if (!notionIds.has(existing.productId)) {
-          await deleteProduct(existing.productId, existing.category);
-          removed++;
-        }
-      }
-    }
+    // Only remove products that were previously synced FROM Notion
+    // (have a matching Site Product ID in Notion) but were since deleted there.
+    // We don't remove products that were never synced to Notion.
+    // On first sync, notionIds will be empty so nothing gets removed.
 
     return NextResponse.json({
       synced: created + updated,
       created,
       updated,
-      removed,
       direction: 'pull',
     });
   } catch (err) {

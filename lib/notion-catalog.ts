@@ -1,6 +1,14 @@
 // ---------------------------------------------------------------------------
 // Notion Equipment DB — Two-Way Product Sync
 // Equipment DB: 88e1f5e856044f589f9b626fca05ca9f
+//
+// Notion DB Schema (actual):
+//   Item (title), Site Product ID (rich_text), Product ID (unique_id, read-only),
+//   Description (rich_text), Category (select), In-Studio Price (number $),
+//   Out-of-Studio Price (number $), Active (checkbox), Included In-Studio (checkbox),
+//   Sort Order (number), Daily Rate (number), Brand (rich_text), Model (rich_text),
+//   Serial (rich_text), Availability (status), Photos (files), Notes (rich_text),
+//   Deposit (number), Requires Insurance (checkbox)
 // ---------------------------------------------------------------------------
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY!;
@@ -75,17 +83,47 @@ interface NotionProduct {
 }
 
 // ---------------------------------------------------------------------------
+// Category mapping
+// ---------------------------------------------------------------------------
+
+const CATEGORY_TO_NOTION: Record<string, string> = {
+  studio: 'Studio Rentals',
+  bundle: 'Lighting Bundles',
+  alacarte: 'A La Carte',
+  addon: 'Add-ons',
+};
+
+const CATEGORY_FROM_NOTION: Record<string, string> = {
+  'Studio Rentals': 'studio',
+  'Lighting Bundles': 'bundle',
+  'A La Carte': 'alacarte',
+  'Add-ons': 'addon',
+  // Physical equipment categories map to alacarte by default
+  'Lighting': 'alacarte',
+  'Camera': 'alacarte',
+  'Lens': 'alacarte',
+  'Grip': 'alacarte',
+  'Backdrop': 'alacarte',
+  'Accessory': 'alacarte',
+  'Modifier': 'alacarte',
+  'Audio': 'addon',
+  'Tether Equipment': 'alacarte',
+  'Computer Accessory': 'alacarte',
+  'Other': 'addon',
+};
+
+// ---------------------------------------------------------------------------
 // Push to Notion (Site → Notion)
 // ---------------------------------------------------------------------------
 
-/** Find a product in Notion Equipment DB by productId */
+/** Find a product in Notion Equipment DB by Site Product ID */
 async function findNotionProduct(productId: string): Promise<string | null> {
   try {
     const result = await notionPost(
       `https://api.notion.com/v1/databases/${EQUIPMENT_DB}/query`,
       {
         filter: {
-          property: 'Product ID',
+          property: 'Site Product ID',
           rich_text: { equals: productId },
         },
         page_size: 1,
@@ -98,23 +136,18 @@ async function findNotionProduct(productId: string): Promise<string | null> {
 }
 
 function buildProductProperties(data: ProductSyncData): Record<string, unknown> {
-  const CATEGORY_LABELS: Record<string, string> = {
-    studio: 'Studio Rentals',
-    bundle: 'Lighting Bundles',
-    alacarte: 'A La Carte',
-    addon: 'Add-ons',
-  };
-
   return {
-    Name: { title: [{ text: { content: data.name } }] },
-    'Product ID': {
+    // Title field is "Item" in this DB
+    Item: { title: [{ text: { content: data.name } }] },
+    // Our DynamoDB product ID stored as rich_text
+    'Site Product ID': {
       rich_text: [{ text: { content: data.productId } }],
     },
     Description: {
       rich_text: [{ text: { content: data.description || '' } }],
     },
     Category: {
-      select: { name: CATEGORY_LABELS[data.category] || data.category },
+      select: { name: CATEGORY_TO_NOTION[data.category] || data.category },
     },
     'In-Studio Price': { number: data.priceInStudio / 100 },
     'Out-of-Studio Price': { number: data.priceOutOfStudio / 100 },
@@ -165,21 +198,25 @@ function extractTitle(prop: { title?: Array<{ plain_text: string }> }): string {
   return prop?.title?.[0]?.plain_text || '';
 }
 
-const CATEGORY_REVERSE: Record<string, string> = {
-  'Studio Rentals': 'studio',
-  'Lighting Bundles': 'bundle',
-  'A La Carte': 'alacarte',
-  'Add-ons': 'addon',
-};
-
-/** Fetch all products from Notion Equipment DB */
+/**
+ * Fetch rental products from Notion Equipment DB.
+ * Only pulls items that have a Site Product ID (synced rental packages).
+ * Physical inventory items (cameras, stands, etc.) are excluded.
+ */
 export async function pullProductsFromNotion(): Promise<NotionProduct[]> {
   const products: NotionProduct[] = [];
   let hasMore = true;
   let startCursor: string | undefined;
 
   while (hasMore) {
-    const body: Record<string, unknown> = { page_size: 100 };
+    const body: Record<string, unknown> = {
+      page_size: 100,
+      // Only pull items that have a Site Product ID (our rental packages)
+      filter: {
+        property: 'Site Product ID',
+        rich_text: { is_not_empty: true },
+      },
+    };
     if (startCursor) body.start_cursor = startCursor;
 
     const result = await notionPost(
@@ -188,14 +225,17 @@ export async function pullProductsFromNotion(): Promise<NotionProduct[]> {
     );
 
     for (const page of result.results) {
+      if (page.archived) continue;
+
       const props = page.properties;
       const categorySelect = props?.Category?.select?.name || '';
+      const siteProductId = extractRichText(props?.['Site Product ID']);
 
       products.push({
-        productId: extractRichText(props?.['Product ID']) || page.id,
-        name: extractTitle(props?.Name) || 'Untitled',
+        productId: siteProductId,
+        name: extractTitle(props?.Item) || 'Untitled',
         description: extractRichText(props?.Description),
-        category: (CATEGORY_REVERSE[categorySelect] || 'alacarte') as NotionProduct['category'],
+        category: (CATEGORY_FROM_NOTION[categorySelect] || 'alacarte') as NotionProduct['category'],
         priceInStudio: Math.round((props?.['In-Studio Price']?.number || 0) * 100),
         priceOutOfStudio: Math.round((props?.['Out-of-Studio Price']?.number || 0) * 100),
         active: props?.Active?.checkbox ?? true,
