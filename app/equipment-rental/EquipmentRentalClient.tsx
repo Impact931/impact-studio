@@ -5,11 +5,7 @@ import { ContentProvider } from '@/context/inline-editor/ContentContext';
 import { ContentSectionById, ContentSectionsExcept } from '@/components/inline-editor/ContentSections';
 import EditModeToggle from '@/components/inline-editor/EditModeToggle';
 import EquipmentCatalog from '@/components/equipment/EquipmentCatalog';
-import {
-  STUDIO_RENTALS,
-  LIGHTING_BUNDLES,
-  ALACARTE_EQUIPMENT,
-} from '@/content/equipment-catalog';
+import { useCatalog } from '@/hooks/useCatalog';
 import { equipmentRentalDefaults } from '@/content/page-defaults/equipment-rental';
 import type { PageContent } from '@/types/inline-editor';
 
@@ -18,6 +14,7 @@ export default function EquipmentRentalClient({
 }: {
   serverContent?: PageContent | null;
 }) {
+  const { studioRentals, bundles, alacarte } = useCatalog();
   const [initialContent, setInitialContent] = useState<PageContent>(
     serverContent && serverContent.sections.length > 0
       ? serverContent
@@ -52,9 +49,9 @@ export default function EquipmentRentalClient({
       {/* Static interactive equipment catalog */}
       <section className="mx-auto max-w-6xl px-6 py-24">
         <EquipmentCatalog
-          studioRentals={STUDIO_RENTALS}
-          bundles={LIGHTING_BUNDLES}
-          alacarte={ALACARTE_EQUIPMENT}
+          studioRentals={studioRentals}
+          bundles={bundles}
+          alacarte={alacarte}
         />
       </section>
 

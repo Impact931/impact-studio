@@ -3,11 +3,7 @@
 import { useState, useEffect } from 'react';
 import PageEditorShell from '@/components/inline-editor/PageEditorShell';
 import EquipmentCatalog from '@/components/equipment/EquipmentCatalog';
-import {
-  STUDIO_RENTALS,
-  LIGHTING_BUNDLES,
-  ALACARTE_EQUIPMENT,
-} from '@/content/equipment-catalog';
+import { useCatalog } from '@/hooks/useCatalog';
 import { homeDefaults } from '@/content/page-defaults/home';
 import type { PageContent } from '@/types/inline-editor';
 
@@ -16,6 +12,7 @@ export default function HomeClient({
 }: {
   serverContent?: PageContent | null;
 }) {
+  const { studioRentals, bundles, alacarte } = useCatalog();
   const [initialContent, setInitialContent] = useState<PageContent>(
     serverContent && serverContent.sections.length > 0
       ? serverContent
@@ -56,9 +53,9 @@ export default function HomeClient({
           </p>
           <div className="mt-12">
             <EquipmentCatalog
-              studioRentals={STUDIO_RENTALS}
-              bundles={LIGHTING_BUNDLES}
-              alacarte={ALACARTE_EQUIPMENT}
+              studioRentals={studioRentals}
+              bundles={bundles}
+              alacarte={alacarte}
             />
           </div>
         </div>
