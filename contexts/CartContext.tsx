@@ -46,7 +46,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setItems([]);
       }
     } else {
-      // Not logged in — clear cart state
+      // Not logged in — hide cart in UI but don't destroy persisted data
       setItems([]);
     }
     setLoaded(true);

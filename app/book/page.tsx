@@ -12,6 +12,7 @@ import {
 import { RENTAL_AGREEMENT } from '@/content/rental-agreement';
 import { BookingFormData, CartItem, EquipmentItem } from '@/types/booking';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
@@ -43,7 +44,9 @@ const STUDIO_RENTAL_MAP: Record<string, string> = {
 
 export default function BookingPage() {
   const { customer, loading: authLoading } = useAuth();
+  const { items: cartItems } = useCart();
   const [currentStep, setCurrentStep] = useState(0);
+  const [cartSeeded, setCartSeeded] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [hasScrolledAgreement, setHasScrolledAgreement] = useState(false);
@@ -89,6 +92,40 @@ export default function BookingPage() {
       }));
     }
   }, [customer]);
+
+  // Seed booking wizard from cart items (once on mount)
+  useEffect(() => {
+    if (cartSeeded || cartItems.length === 0) return;
+    setCartSeeded(true);
+
+    const bundles = new Set<string>();
+    const alacarte = new Set<string>();
+    let studioType: BookingFormData['studioRentalType'] = 'none';
+    let damageWaiver = false;
+
+    for (const item of cartItems) {
+      if (item.equipmentId.startsWith('studio-')) {
+        const entry = Object.entries(STUDIO_RENTAL_MAP).find(
+          ([, v]) => v === item.equipmentId,
+        );
+        if (entry) studioType = entry[0] as BookingFormData['studioRentalType'];
+      } else if (item.equipmentId.startsWith('bundle-')) {
+        bundles.add(item.equipmentId);
+      } else if (item.equipmentId.startsWith('alacarte-')) {
+        alacarte.add(item.equipmentId);
+      } else if (item.equipmentId === 'addon-damage-waiver') {
+        damageWaiver = true;
+      }
+    }
+
+    setSelectedBundles(bundles);
+    setSelectedAlacarte(alacarte);
+    setForm((prev) => ({
+      ...prev,
+      studioRentalType: studioType,
+      damageWaiver,
+    }));
+  }, [cartItems, cartSeeded]);
 
   const isInStudio = form.rentalMode === 'in_studio';
 
