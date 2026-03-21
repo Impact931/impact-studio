@@ -5,6 +5,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createCheckoutSession } from '@/lib/stripe';
 import { getOrCreateStripeCustomer } from '@/lib/stripe-deposits';
 import { Booking, BookingFormData } from '@/types/booking';
+import { scanItems } from '@/lib/dynamodb';
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const BUCKET = process.env.S3_BUCKET_NAME!;
@@ -69,6 +70,20 @@ export async function POST(req: NextRequest) {
     const bookingId = uuidv4();
     const now = new Date().toISOString();
 
+    // --- Look up customerId by email ---
+    let customerId: string | undefined;
+    try {
+      const customers = await scanItems(
+        'begins_with(PK, :pk) AND SK = :sk AND email = :email',
+        { ':pk': 'CUSTOMER#', ':sk': 'META', ':email': body.email },
+      );
+      if (customers.length > 0) {
+        customerId = (customers[0].PK as string).replace('CUSTOMER#', '');
+      }
+    } catch {
+      // Continue without customerId
+    }
+
     // --- Get or create Stripe Customer ---
     const stripeCustomerId = await getOrCreateStripeCustomer(
       body.email,
@@ -115,6 +130,7 @@ export async function POST(req: NextRequest) {
       SK: `META`,
       ...booking,
       stripeCustomerId,
+      customerId: customerId || undefined,
       // Remove the large base64 string from DynamoDB (stored in S3)
       signatureDataUrl: undefined,
     });
@@ -130,6 +146,7 @@ export async function POST(req: NextRequest) {
         SK: `META`,
         ...booking,
         stripeCustomerId,
+        customerId: customerId || undefined,
         signatureDataUrl: undefined,
         stripeSessionId: sessionId,
         stripePaymentIntentId: securityHoldIntentId ?? undefined,

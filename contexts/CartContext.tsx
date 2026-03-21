@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { CartItem } from '@/types/booking';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CartContextType {
   items: CartItem[];
@@ -13,35 +14,55 @@ interface CartContextType {
   clearCart: () => void;
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
+  requiresAuth: boolean;
 }
 
-const STORAGE_KEY = 'impact-studio-cart';
+function getStorageKey(customerId: string | undefined): string | null {
+  if (!customerId) return null;
+  return `impact-studio-cart-${customerId}`;
+}
+
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
+  const { customer } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Load from localStorage
+  const storageKey = getStorageKey(customer?.customerId);
+
+  // Load cart from localStorage when user changes
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setItems(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+    if (storageKey) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          setItems(JSON.parse(stored));
+        } catch {
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        setItems([]);
       }
+    } else {
+      // Not logged in — clear cart state
+      setItems([]);
     }
     setLoaded(true);
-  }, []);
+  }, [storageKey]);
 
-  // Persist to localStorage
+  // Persist to localStorage (per-user key)
   useEffect(() => {
-    if (loaded) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    if (loaded && storageKey) {
+      localStorage.setItem(storageKey, JSON.stringify(items));
     }
-  }, [items, loaded]);
+  }, [items, loaded, storageKey]);
+
+  // Clean up old global cart key from before per-user migration
+  useEffect(() => {
+    localStorage.removeItem('impact-studio-cart');
+  }, []);
 
   const addItem = useCallback((item: CartItem) => {
     setItems((prev) => {
@@ -76,7 +97,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = useCallback(() => {
     setItems([]);
-  }, []);
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+    }
+  }, [storageKey]);
 
   const itemCount = useMemo(
     () => items.reduce((sum, i) => sum + i.quantity, 0),
@@ -100,6 +124,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         clearCart,
         drawerOpen,
         setDrawerOpen,
+        requiresAuth: !customer,
       }}
     >
       {children}

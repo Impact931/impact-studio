@@ -61,7 +61,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as { metadata?: { bookingId?: string }; customer_email?: string | null };
+      const session = event.data.object as {
+        id: string;
+        metadata?: { bookingId?: string };
+        customer_email?: string | null;
+        customer?: string | null;
+        payment_intent?: string | null;
+        amount_total?: number | null;
+        payment_status?: string;
+        currency?: string;
+      };
       const bookingId = session.metadata?.bookingId;
 
       if (!bookingId) {
@@ -69,12 +78,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      // Update booking status
+      // Update booking status with full Stripe transaction details
       const now = new Date().toISOString();
-      await updateItem(`BOOKING#${bookingId}`, 'META', {
+      const stripeDetails: Record<string, unknown> = {
         status: 'confirmed',
         updatedAt: now,
-      });
+        stripeCheckoutSessionId: session.id,
+      };
+      if (session.payment_intent) stripeDetails.stripePaymentIntentId = session.payment_intent;
+      if (session.customer) stripeDetails.stripeCustomerId = session.customer;
+      if (session.amount_total) stripeDetails.stripeAmountTotal = session.amount_total;
+      if (session.payment_status) stripeDetails.stripePaymentStatus = session.payment_status;
+      if (session.currency) stripeDetails.stripeCurrency = session.currency;
+
+      await updateItem(`BOOKING#${bookingId}`, 'META', stripeDetails);
 
       // Fetch booking for email details
       const booking = await getItem(`BOOKING#${bookingId}`, 'META');
@@ -224,13 +241,35 @@ export async function POST(req: NextRequest) {
           totalAmount,
           hasInsurance: booking.hasInsurance as boolean,
           insuranceProvider: booking.insuranceProvider as string | undefined,
-          stripePaymentIntentId: booking.stripePaymentIntentId as string | undefined,
+          stripePaymentIntentId: (session.payment_intent as string) || (booking.stripePaymentIntentId as string | undefined),
+          stripeCheckoutSessionId: session.id,
           createdAt: booking.createdAt as string,
         }).catch((err) => console.error('Notion rental sync error:', err));
 
         updateNotionClientRentalStats(renterEmail, totalAmount).catch((err) =>
           console.error('Notion client stats sync error:', err),
         );
+
+        // Store purchase history on the customer record
+        if (booking.customerId) {
+          const purchaseRecord = {
+            bookingId,
+            rentalDate,
+            endDate,
+            equipment: equipment.map((e) => ({ name: e.name, quantity: e.quantity, price: e.price })),
+            totalAmount,
+            stripeCheckoutSessionId: session.id,
+            stripePaymentIntentId: session.payment_intent || undefined,
+            stripeCustomerId: session.customer || undefined,
+            stripePaymentStatus: session.payment_status || undefined,
+            purchasedAt: now,
+          };
+          updateItem(
+            `CUSTOMER#${booking.customerId}`,
+            `PURCHASE#${bookingId}`,
+            purchaseRecord,
+          ).catch((err) => console.error('Customer purchase history error:', err));
+        }
 
         // Sync Stripe Customer ID to client record
         if (booking.stripeCustomerId) {

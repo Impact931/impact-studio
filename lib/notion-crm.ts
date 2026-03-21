@@ -44,6 +44,7 @@ interface RentalData {
   hasInsurance: boolean;
   insuranceProvider?: string;
   stripePaymentIntentId?: string;
+  stripeCheckoutSessionId?: string;
   createdAt: string;
 }
 
@@ -359,6 +360,12 @@ export async function createNotionRental(data: RentalData): Promise<string> {
   if (data.stripePaymentIntentId) {
     properties['Stripe Payment Intent ID'] = {
       rich_text: [{ text: { content: data.stripePaymentIntentId } }],
+    };
+  }
+
+  if (data.stripeCheckoutSessionId) {
+    properties['Stripe Receipt Link'] = {
+      url: `https://dashboard.stripe.com/payments/${data.stripePaymentIntentId || data.stripeCheckoutSessionId}`,
     };
   }
 

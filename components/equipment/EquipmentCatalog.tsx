@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { EquipmentItem } from '@/types/booking';
 import { formatPrice } from '@/content/equipment-catalog';
 import { useCart } from '@/contexts/CartContext';
@@ -31,13 +32,25 @@ function PriceDisplay({ item, mode }: { item: EquipmentItem; mode: 'in_studio' |
 }
 
 function AddToCartButton({ item, mode }: { item: EquipmentItem; mode: 'in_studio' | 'out_of_studio' }) {
-  const { addItem, items } = useCart();
+  const { addItem, items, requiresAuth } = useCart();
+  const router = useRouter();
   const price = getPrice(item, mode);
   const isInCart = items.some((i) => i.equipmentId === item.id);
 
   // Don't show button for included/studio-only items
   if ((item.included && mode === 'in_studio') || (price === 0 && mode === 'out_of_studio')) {
     return null;
+  }
+
+  if (requiresAuth) {
+    return (
+      <button
+        onClick={() => router.push('/account/login?redirect=/equipment-rental')}
+        className="mt-3 w-full rounded-md px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+      >
+        Sign In to Add
+      </button>
+    );
   }
 
   return (
