@@ -44,7 +44,7 @@ const STUDIO_RENTAL_MAP: Record<string, string> = {
 
 export default function BookingPage() {
   const { customer, loading: authLoading } = useAuth();
-  const { items: cartItems } = useCart();
+  const { items: cartItems, addItem: addToCart, removeItem: removeFromCart } = useCart();
   const [currentStep, setCurrentStep] = useState(0);
   const [cartSeeded, setCartSeeded] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -308,6 +308,25 @@ export default function BookingPage() {
 
   const goNext = () => {
     if (!validateStep(currentStep)) return;
+
+    // Sync equipment selections to the persistent cart when leaving Equipment Selection
+    if (getStepContent(currentStep) === 'Equipment Selection') {
+      // Remove cart items that are no longer selected in the wizard
+      const selectedIds = new Set(cart.map((c) => c.equipmentId));
+      for (const existing of cartItems) {
+        if (!selectedIds.has(existing.equipmentId)) {
+          removeFromCart(existing.equipmentId);
+        }
+      }
+      // Add/update items from the wizard into the cart
+      for (const item of cart) {
+        const existing = cartItems.find((c) => c.equipmentId === item.equipmentId);
+        if (!existing) {
+          addToCart(item);
+        }
+      }
+    }
+
     if (currentStep < STEPS.length - 1) {
       setCurrentStep((s) => s + 1);
     }
