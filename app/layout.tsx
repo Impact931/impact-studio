@@ -25,6 +25,10 @@ export const metadata: Metadata = {
   title: 'Impact Studio | Professional Studio & Equipment Rental',
   description:
     'Clarksville, TN\'s premier photography studio — cyclorama wall, professional lighting, and everything you need to create. Studio and equipment rental for photographers and creators.',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 export default function RootLayout({
