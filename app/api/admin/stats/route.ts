@@ -21,10 +21,23 @@ export async function GET() {
       ),
     ]);
 
-    const totalRevenue = bookings.reduce(
+    const paidBookings = bookings.filter(
+      (b) => b.status && b.status !== 'cancelled',
+    );
+
+    const totalRevenue = paidBookings.reduce(
       (sum, b) => sum + (Number(b.totalAmount || b.total) || 0),
       0,
     ) / 100;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonthRevenue = paidBookings
+      .filter((b) => {
+        const date = (b.rentalDate || b.createdAt || '') as string;
+        return date.startsWith(currentMonth);
+      })
+      .reduce((sum, b) => sum + (Number(b.totalAmount || b.total) || 0), 0) / 100;
 
     const recentMembers = customers
       .sort(
@@ -57,6 +70,7 @@ export async function GET() {
       totalMembers: customers.length,
       totalRentals: bookings.length,
       totalRevenue,
+      thisMonthRevenue,
       recentMembers,
       recentRentals,
     });

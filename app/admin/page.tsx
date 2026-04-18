@@ -8,6 +8,7 @@ interface DashboardStats {
   totalMembers: number;
   totalRentals: number;
   totalRevenue: number;
+  thisMonthRevenue: number;
   recentMembers: { name: string; email: string; createdAt: string }[];
   recentRentals: { renterName: string; rentalDate: string; total: number; status: string }[];
 }
@@ -90,7 +91,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           label="This Month"
-          value={loading ? '—' : `$${(stats?.recentRentals?.reduce((sum, r) => sum + (r.total || 0), 0) ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          value={loading ? '—' : `$${(stats?.thisMonthRevenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<TrendingUp className="w-6 h-6 text-amber-600" />}
           color="bg-amber-50"
         />
