@@ -24,7 +24,7 @@ export async function GET() {
     const totalRevenue = bookings.reduce(
       (sum, b) => sum + (Number(b.totalAmount || b.total) || 0),
       0,
-    );
+    ) / 100;
 
     const recentMembers = customers
       .sort(
@@ -49,7 +49,7 @@ export async function GET() {
       .map((b) => ({
         renterName: b.renterName,
         rentalDate: b.rentalDate,
-        total: Number(b.totalAmount || b.total) || 0,
+        total: (Number(b.totalAmount || b.total) || 0) / 100,
         status: b.status || 'pending',
       }));
 

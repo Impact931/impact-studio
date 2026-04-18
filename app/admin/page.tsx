@@ -84,13 +84,13 @@ export default function AdminDashboard() {
         />
         <StatCard
           label="Revenue"
-          value={loading ? '—' : `$${(stats?.totalRevenue ?? 0).toLocaleString()}`}
+          value={loading ? '—' : `$${(stats?.totalRevenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<DollarSign className="w-6 h-6 text-green-600" />}
           color="bg-green-50"
         />
         <StatCard
           label="This Month"
-          value={loading ? '—' : `$${(stats?.recentRentals?.reduce((sum, r) => sum + (r.total || 0), 0) ?? 0).toLocaleString()}`}
+          value={loading ? '—' : `$${(stats?.recentRentals?.reduce((sum, r) => sum + (r.total || 0), 0) ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           icon={<TrendingUp className="w-6 h-6 text-amber-600" />}
           color="bg-amber-50"
         />
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900">
-                      ${(r.total || 0).toLocaleString()}
+                      ${(r.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
                       r.status === 'confirmed'
