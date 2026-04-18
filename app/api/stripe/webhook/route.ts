@@ -9,6 +9,8 @@ const REGION = process.env.AWS_REGION || 'us-east-1';
 const OPS_EMAIL = process.env.OPS_NOTIFICATION_EMAIL || 'angus@jhr-photography.com';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@impactstudio931.com';
 const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'bookings@impactstudio931.com';
+const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
+const SLACK_CHANNEL = process.env.SLACK_CHANNEL_STUDIO_RENTALS;
 
 const sesConfig: ConstructorParameters<typeof SESClient>[0] = { region: REGION };
 if (
@@ -21,6 +23,24 @@ if (
   };
 }
 const ses = new SESClient(sesConfig);
+
+async function sendSlackNotification(message: { text: string; blocks: unknown[] }) {
+  if (!SLACK_BOT_TOKEN || !SLACK_CHANNEL) return;
+  try {
+    const res = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ channel: SLACK_CHANNEL, ...message }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.error('Slack notification failed:', data.error);
+  } catch (err) {
+    console.error('Slack notification error:', err);
+  }
+}
 
 async function sendEmail(to: string | string[], subject: string, body: string) {
   const toAddresses = Array.isArray(to) ? to : [to];
@@ -231,6 +251,43 @@ export async function POST(req: NextRequest) {
           </div>
           `,
         ).catch((err) => console.error('Ops notification email failed:', err));
+
+        // Slack notification (non-blocking)
+        const equipList = equipment.map((item) => `• ${item.name} × ${item.quantity}`).join('\n');
+        sendSlackNotification({
+          text: `New Rental: ${renterName} — ${formatUSD(totalAmount)}`,
+          blocks: [
+            {
+              type: 'header',
+              text: { type: 'plain_text', text: '🎬 New Equipment Rental', emoji: true },
+            },
+            {
+              type: 'section',
+              fields: [
+                { type: 'mrkdwn', text: `*Renter*\n${renterName}` },
+                { type: 'mrkdwn', text: `*Total*\n${formatUSD(totalAmount)}` },
+                { type: 'mrkdwn', text: `*Date*\n${rentalDate}${isMultiDay ? ` → ${endDate}` : ''}` },
+                { type: 'mrkdwn', text: `*Time*\n${startTime} — ${endTime}` },
+                { type: 'mrkdwn', text: `*Company*\n${(booking.company as string) || '—'}` },
+                { type: 'mrkdwn', text: `*Insurance*\n${booking.hasInsurance ? '✅ Yes' : '⚠️ No — $500 hold'}` },
+              ],
+            },
+            {
+              type: 'section',
+              text: { type: 'mrkdwn', text: `*Equipment*\n${equipList}` },
+            },
+            {
+              type: 'actions',
+              elements: [
+                {
+                  type: 'button',
+                  text: { type: 'plain_text', text: 'View in Admin', emoji: true },
+                  url: `https://impactstudio931.com/admin/rentals/${bookingId}`,
+                },
+              ],
+            },
+          ],
+        }).catch((err) => console.error('Slack rental notification failed:', err));
 
         // Sync to Notion CRM (non-blocking)
         const rentalMode = (booking.rentalMode as string) || 'in_studio';
