@@ -54,7 +54,7 @@ export interface CartItem {
 
 export interface Booking extends BookingFormData {
   bookingId: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'checked_out' | 'returned' | 'completed' | 'cancelled';
   signatureImageKey?: string;
   coiFileKey?: string;
   securityHold: boolean;

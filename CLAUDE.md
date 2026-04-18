@@ -57,3 +57,26 @@ npm run build       # Production build
 npm run typecheck   # Type checking
 ```
 Git push to main triggers Amplify auto-build.
+
+## Project Wiki (`.claude/wiki/`)
+This project uses the LLM Wiki pattern for persistent, compounding project knowledge.
+
+### How It Works
+- **Wiki pages** (`.claude/wiki/`) — synthesized, interlinked topic pages the LLM maintains
+- **Memory files** (`~/.claude/projects/.../memory/`) — user prefs, feedback, references
+- **Journal entries** (`~/Documents/jhr-ai-command/AI-Journey-Journal/`) — chronological raw source
+
+### Session Protocol
+After significant sessions:
+1. Write journal entry → `AI-Journey-Journal/NNN-YYYY-MM-DD-topic.md`
+2. Update relevant wiki pages (touch all affected topics, not just the one you worked on)
+3. Append to `wiki/log.md` with date, operation type, and summary
+4. Update `wiki/index.md` if new pages were created
+
+### Wiki Operations
+- **Ingest:** New knowledge → update wiki pages, cross-references, index, log
+- **Query:** Read `wiki/index.md` first → drill into relevant pages → synthesize answer
+- **Lint:** Periodically check for stale pages, missing cross-refs, contradictions with code
+
+### Vault Integration
+Wiki + journal sync to jhr-vault (Obsidian) for org-level browsing. See `memory/vault_integration.md` for setup instructions when ready.

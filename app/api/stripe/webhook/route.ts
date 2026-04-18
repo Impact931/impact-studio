@@ -6,8 +6,9 @@ import { createNotionRental, updateNotionClientRentalStats, updateNotionClientSt
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 const REGION = process.env.AWS_REGION || 'us-east-1';
-const OPS_EMAIL = 'angus@jhr-photography.com';
-const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'info@jhr-photography.com';
+const OPS_EMAIL = process.env.OPS_NOTIFICATION_EMAIL || 'angus@jhr-photography.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@impactstudio931.com';
+const FROM_EMAIL = process.env.SES_FROM_EMAIL || 'bookings@impactstudio931.com';
 
 const sesConfig: ConstructorParameters<typeof SESClient>[0] = { region: REGION };
 if (
@@ -21,20 +22,27 @@ if (
 }
 const ses = new SESClient(sesConfig);
 
-async function sendEmail(to: string, subject: string, body: string) {
-  await ses.send(
-    new SendEmailCommand({
-      Source: FROM_EMAIL,
-      ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
-      Destination: { ToAddresses: [to] },
-      Message: {
-        Subject: { Data: subject },
-        Body: {
-          Html: { Data: body },
+async function sendEmail(to: string | string[], subject: string, body: string) {
+  const toAddresses = Array.isArray(to) ? to : [to];
+  try {
+    await ses.send(
+      new SendEmailCommand({
+        Source: FROM_EMAIL,
+        ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
+        Destination: { ToAddresses: toAddresses },
+        Message: {
+          Subject: { Data: subject },
+          Body: {
+            Html: { Data: body },
+          },
         },
-      },
-    }),
-  );
+      }),
+    );
+    console.log(`Email sent to ${toAddresses.join(', ')}: ${subject}`);
+  } catch (emailErr) {
+    console.error(`SES email failed to ${toAddresses.join(', ')}:`, emailErr);
+    throw emailErr;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -126,8 +134,8 @@ export async function POST(req: NextRequest) {
             </p>`
           : '';
 
-        // Send confirmation/receipt to renter
-        await sendEmail(
+        // Send confirmation/receipt to renter (non-blocking — don't fail webhook on email error)
+        sendEmail(
           renterEmail,
           `Impact Studio — Receipt & Booking Confirmation #${bookingId.slice(0, 8)}`,
           `
@@ -181,11 +189,12 @@ export async function POST(req: NextRequest) {
             </div>
           </div>
           `,
-        );
+        ).catch((err) => console.error('Renter confirmation email failed:', err));
 
-        // Send ops notification
-        await sendEmail(
-          OPS_EMAIL,
+        // Send ops + admin notification
+        const opsRecipients = Array.from(new Set([OPS_EMAIL, ADMIN_EMAIL].filter(Boolean)));
+        sendEmail(
+          opsRecipients,
           `New Booking: ${renterName} — ${rentalDate} — ${formatUSD(totalAmount)}`,
           `
           <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
@@ -221,7 +230,7 @@ export async function POST(req: NextRequest) {
             </div>
           </div>
           `,
-        );
+        ).catch((err) => console.error('Ops notification email failed:', err));
 
         // Sync to Notion CRM (non-blocking)
         const rentalMode = (booking.rentalMode as string) || 'in_studio';
