@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   Loader2,
   MessageSquare,
+  Receipt,
+  ClipboardCheck,
 } from 'lucide-react';
 
 interface Equipment {
@@ -45,6 +47,13 @@ interface Note {
   text: string;
   author: string;
   timestamp: string;
+}
+
+interface ReturnItemInspection {
+  equipmentName: string;
+  returned: boolean;
+  condition: 'good' | 'minor_damage' | 'damaged' | 'missing';
+  notes: string;
 }
 
 interface Rental {
@@ -84,6 +93,8 @@ interface Rental {
   returnedAt?: string;
   completedAt?: string;
   cancelledAt?: string;
+  returnInspection?: ReturnItemInspection[] | null;
+  returnInspectedBy?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -145,6 +156,9 @@ export default function RentalDetailPage() {
   const [depositAction, setDepositAction] = useState<string | null>(null);
   const [damageAmount, setDamageAmount] = useState('');
   const [error, setError] = useState('');
+  const [showReturnInspection, setShowReturnInspection] = useState(false);
+  const [inspectionItems, setInspectionItems] = useState<ReturnItemInspection[]>([]);
+  const [receiptSent, setReceiptSent] = useState(false);
 
   const loadRental = useCallback(async () => {
     try {
@@ -205,6 +219,77 @@ export default function RentalDetailPage() {
       await loadRental();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSendReceipt() {
+    setActionLoading('receipt');
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/rentals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sendReceipt' }),
+      });
+      if (!res.ok) throw new Error('Failed to send receipt');
+      setReceiptSent(true);
+      setTimeout(() => setReceiptSent(false), 3000);
+      await loadRental();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send receipt');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  function openReturnInspection() {
+    if (!rental) return;
+    setInspectionItems(
+      rental.equipment.map((item) => ({
+        equipmentName: item.name,
+        returned: true,
+        condition: 'good' as const,
+        notes: '',
+      })),
+    );
+    setShowReturnInspection(true);
+  }
+
+  function updateInspectionItem(index: number, updates: Partial<ReturnItemInspection>) {
+    setInspectionItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...updates } : item)),
+    );
+  }
+
+  async function submitReturnInspection() {
+    setActionLoading('returned');
+    setError('');
+    try {
+      const hasIssues = inspectionItems.some((i) => !i.returned || i.condition !== 'good');
+      const summaryNote = hasIssues
+        ? `Return inspection: ${inspectionItems.filter((i) => !i.returned || i.condition !== 'good').map((i) => `${i.equipmentName} — ${i.returned ? i.condition.replace(/_/g, ' ') : 'MISSING'}${i.notes ? ` (${i.notes})` : ''}`).join('; ')}`
+        : 'All items returned in good condition';
+
+      const res = await fetch(`/api/admin/rentals/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'returned',
+          note: summaryNote,
+          returnInspection: inspectionItems,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed');
+      }
+      setShowReturnInspection(false);
+      setStatusNote('');
+      await loadRental();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Return failed');
     } finally {
       setActionLoading(null);
     }
@@ -291,6 +376,108 @@ export default function RentalDetailPage() {
         </div>
       )}
 
+      {/* Return Inspection Form */}
+      {showReturnInspection && (
+        <div className="mb-6 p-6 bg-white rounded-xl border-2 border-teal-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <ClipboardCheck className="w-5 h-5 text-teal-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Return Check-In</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">Inspect each item and note its condition before completing the return.</p>
+
+          <div className="space-y-3">
+            {inspectionItems.map((item, i) => (
+              <div key={i} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 min-w-[180px]">
+                    <input
+                      type="checkbox"
+                      checked={item.returned}
+                      onChange={(e) => updateInspectionItem(i, { returned: e.target.checked, condition: e.target.checked ? item.condition : 'missing' })}
+                      className="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="font-medium text-gray-900 text-sm">{item.equipmentName}</span>
+                  </label>
+
+                  <select
+                    value={item.condition}
+                    onChange={(e) => updateInspectionItem(i, { condition: e.target.value as ReturnItemInspection['condition'] })}
+                    disabled={!item.returned}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm bg-white disabled:opacity-50 disabled:bg-gray-100"
+                  >
+                    <option value="good">Good</option>
+                    <option value="minor_damage">Minor Damage</option>
+                    <option value="damaged">Damaged</option>
+                    <option value="missing">Missing</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Notes (optional)..."
+                    value={item.notes}
+                    onChange={(e) => updateInspectionItem(i, { notes: e.target.value })}
+                    className="flex-1 min-w-[150px] px-3 py-1.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {inspectionItems.some((i) => !i.returned || i.condition !== 'good') && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-amber-800">
+                Issues detected: {inspectionItems.filter((i) => !i.returned || i.condition !== 'good').map((i) =>
+                  `${i.equipmentName} (${i.returned ? i.condition.replace(/_/g, ' ') : 'missing'})`
+                ).join(', ')}
+              </p>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={submitReturnInspection}
+              disabled={!!actionLoading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              {actionLoading === 'returned' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Complete Return
+            </button>
+            <button
+              onClick={() => setShowReturnInspection(false)}
+              className="px-4 py-2.5 text-gray-500 hover:text-gray-700 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email Receipt for terminal statuses (no other actions) */}
+      {actions.length === 0 && !['pending', 'cancelled'].includes(rental.status) && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <p className="text-sm font-medium text-gray-600 mb-3">Actions</p>
+          <button
+            onClick={handleSendReceipt}
+            disabled={!!actionLoading}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border disabled:opacity-50 ${
+              receiptSent
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {actionLoading === 'receipt' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : receiptSent ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <Receipt className="w-4 h-4" />
+            )}
+            {receiptSent ? 'Receipt Sent' : 'Email Receipt'}
+          </button>
+        </div>
+      )}
+
       {/* Status Actions */}
       {actions.length > 0 && (
         <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
@@ -322,18 +509,41 @@ export default function RentalDetailPage() {
             <div className="flex flex-wrap gap-2">
               {actions.map((a) => {
                 const Icon = a.icon;
+                const isReturnAction = a.action === 'returned';
                 return (
                   <button
                     key={a.action}
-                    onClick={() => handleStatusChange(a.action)}
+                    onClick={() => isReturnAction ? openReturnInspection() : handleStatusChange(a.action)}
                     disabled={!!actionLoading}
                     className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${a.color} disabled:opacity-50`}
                   >
                     {actionLoading === a.action ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
-                    {a.label}
+                    {isReturnAction ? 'Return Check-In' : a.label}
                   </button>
                 );
               })}
+
+              {/* Email Receipt */}
+              {!['pending', 'cancelled'].includes(rental.status) && (
+                <button
+                  onClick={handleSendReceipt}
+                  disabled={!!actionLoading}
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border disabled:opacity-50 ${
+                    receiptSent
+                      ? 'bg-green-50 border-green-200 text-green-700'
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {actionLoading === 'receipt' ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : receiptSent ? (
+                    <CheckCircle2 className="w-4 h-4" />
+                  ) : (
+                    <Receipt className="w-4 h-4" />
+                  )}
+                  {receiptSent ? 'Receipt Sent' : 'Email Receipt'}
+                </button>
+              )}
 
               {/* Optional note for non-cancel actions */}
               <input
@@ -434,14 +644,35 @@ export default function RentalDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {rental.equipment.map((item, i) => (
-                  <tr key={i}>
-                    <td className="py-3 text-gray-900">{item.name}</td>
-                    <td className="py-3 text-center text-gray-600">{item.quantity}</td>
-                    <td className="py-3 text-right text-gray-600">{formatUSD(item.price)}</td>
-                    <td className="py-3 text-right font-medium text-gray-900">{formatUSD(item.price * item.quantity)}</td>
-                  </tr>
-                ))}
+                {rental.equipment.map((item, i) => {
+                  const inspection = rental.returnInspection?.find((ri) => ri.equipmentName === item.name);
+                  return (
+                    <tr key={i}>
+                      <td className="py-3">
+                        <span className="text-gray-900">{item.name}</span>
+                        {inspection && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                              !inspection.returned ? 'bg-red-50 text-red-700' :
+                              inspection.condition === 'good' ? 'bg-green-50 text-green-700' :
+                              inspection.condition === 'minor_damage' ? 'bg-amber-50 text-amber-700' :
+                              inspection.condition === 'damaged' ? 'bg-red-50 text-red-700' :
+                              'bg-red-50 text-red-700'
+                            }`}>
+                              {!inspection.returned ? 'Missing' : inspection.condition.replace(/_/g, ' ')}
+                            </span>
+                            {inspection.notes && (
+                              <span className="text-xs text-gray-500">{inspection.notes}</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 text-center text-gray-600">{item.quantity}</td>
+                      <td className="py-3 text-right text-gray-600">{formatUSD(item.price)}</td>
+                      <td className="py-3 text-right font-medium text-gray-900">{formatUSD(item.price * item.quantity)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gray-200">
@@ -450,6 +681,12 @@ export default function RentalDetailPage() {
                 </tr>
               </tfoot>
             </table>
+            {rental.returnInspection && rental.returnInspectedBy && (
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500">
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                <span>Inspected by {rental.returnInspectedBy}{rental.returnedAt ? ` · ${formatDateTime(rental.returnedAt)}` : ''}</span>
+              </div>
+            )}
           </div>
 
           {/* Notes & Activity */}

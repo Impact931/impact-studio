@@ -98,6 +98,8 @@ export async function GET(
         returnedAt: booking.returnedAt,
         completedAt: booking.completedAt,
         cancelledAt: booking.cancelledAt,
+        returnInspection: booking.returnInspection || null,
+        returnInspectedBy: booking.returnInspectedBy || null,
       },
       activities: activities.map((a) => ({
         id: a.SK,
@@ -133,7 +135,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { action, note } = body;
+    const { action, note, returnInspection } = body;
 
     const booking = await getItem(`BOOKING#${id}`, 'META');
     if (!booking) {
@@ -153,6 +155,79 @@ export async function PATCH(
         timestamp: now,
       });
       return NextResponse.json({ success: true, noteId });
+    }
+
+    // Handle send receipt
+    if (action === 'sendReceipt') {
+      const renterEmail = booking.email as string;
+      const renterName = booking.renterName as string;
+      const rentalDate = booking.rentalDate as string;
+      const endDate = (booking.endDate as string) || rentalDate;
+      const startTime = booking.startTime as string;
+      const endTime = booking.endTime as string;
+      const totalAmount = Number(booking.totalAmount) || 0;
+      const equipment = (booking.equipment || []) as Array<{ name: string; quantity: number; price: number }>;
+      const fmtUSD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+      const equipRows = equipment
+        .map((item) =>
+          `<tr><td style="padding:8px 12px;border-bottom:1px solid #eee;">${item.name}</td>
+           <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+           <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;">${fmtUSD(item.price * item.quantity)}</td></tr>`)
+        .join('\n');
+
+      await ses.send(new SendEmailCommand({
+        Source: FROM_EMAIL,
+        ReplyToAddresses: ['jayson@jhr-photography.com', 'angus@jhr-photography.com'],
+        Destination: { ToAddresses: [renterEmail] },
+        Message: {
+          Subject: { Data: `Impact Studio — Receipt #${id.slice(0, 8)}` },
+          Body: { Html: { Data: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+              <div style="background:#1a1a1a;padding:24px;text-align:center;">
+                <h1 style="color:#c8a96e;margin:0;font-size:24px;">Impact Studio</h1>
+                <p style="color:#999;margin:4px 0 0;font-size:13px;">Equipment Rental Receipt</p>
+              </div>
+              <div style="padding:24px;">
+                <p>Hi ${renterName},</p>
+                <p>Here is your rental receipt.</p>
+                <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
+                  <tr><td style="padding:6px 0;color:#666;width:140px;">Booking ID</td><td style="font-family:monospace;">${id}</td></tr>
+                  <tr><td style="padding:6px 0;color:#666;">Start</td><td>${rentalDate} at ${startTime}</td></tr>
+                  <tr><td style="padding:6px 0;color:#666;">End</td><td>${endDate} at ${endTime}</td></tr>
+                  ${booking.company ? `<tr><td style="padding:6px 0;color:#666;">Company</td><td>${booking.company}</td></tr>` : ''}
+                </table>
+                <h3 style="margin:24px 0 8px;font-size:15px;">Equipment Rented</h3>
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                  <thead><tr style="background:#f5f5f5;">
+                    <th style="padding:8px 12px;text-align:left;font-weight:600;">Item</th>
+                    <th style="padding:8px 12px;text-align:center;font-weight:600;">Qty</th>
+                    <th style="padding:8px 12px;text-align:right;font-weight:600;">Amount</th>
+                  </tr></thead>
+                  <tbody>${equipRows}</tbody>
+                </table>
+                <div style="margin-top:12px;padding:12px;background:#f9f9f9;border-radius:4px;display:flex;justify-content:space-between;">
+                  <span style="font-size:16px;font-weight:700;">Total</span>
+                  <span style="font-size:16px;font-weight:700;color:#c8a96e;">${fmtUSD(totalAmount)}</span>
+                </div>
+                <hr style="margin:24px 0;border:none;border-top:1px solid #eee;" />
+                <p style="font-size:13px;color:#666;">Questions? Reply to this email or call <strong>615-249-8096</strong>.</p>
+                <p style="margin-top:24px;color:#c8a96e;font-weight:bold;">— Impact Studio by JHR Photography</p>
+              </div>
+            </div>
+          ` } },
+        },
+      }));
+
+      // Log activity
+      await updateItem(`BOOKING#${id}`, `ACTIVITY#${now}`, {
+        action: 'email_sent',
+        details: `Receipt email sent to ${renterEmail}`,
+        performedBy,
+        timestamp: now,
+      });
+
+      return NextResponse.json({ success: true, action: 'receiptSent' });
     }
 
     // Handle status change
@@ -178,7 +253,13 @@ export async function PATCH(
     switch (action) {
       case 'confirmed': updates.confirmedAt = now; break;
       case 'checked_out': updates.checkedOutAt = now; break;
-      case 'returned': updates.returnedAt = now; break;
+      case 'returned':
+        updates.returnedAt = now;
+        if (returnInspection) {
+          updates.returnInspection = returnInspection;
+          updates.returnInspectedBy = performedBy;
+        }
+        break;
       case 'completed': updates.completedAt = now; break;
       case 'cancelled': updates.cancelledAt = now; break;
     }
